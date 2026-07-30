@@ -1,4 +1,18 @@
-import { NextResponse } from 'next/server';
+#!/usr/bin/env node
+// Extinde platforma: mai multe ligi (inclusiv Champions League, Europa League,
+// Conference League) + aduce meciuri pentru o saptamana in avans, nu doar azi.
+
+const fs = require('fs');
+const path = require('path');
+
+function writeFile(relativePath, content) {
+  const fullPath = path.join(__dirname, relativePath);
+  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+  fs.writeFileSync(fullPath, content, { encoding: 'utf8' });
+  console.log('Actualizat: ' + relativePath);
+}
+
+writeFile('app/api/sync/route.ts', `import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { fetchFixturesByDate, fetchTeamStatistics, fetchOddsByFixture } from '@/lib/apiFootball';
 import { calculateAllMarkets, TeamForm } from '@/lib/poisson';
@@ -144,3 +158,9 @@ export async function GET(request: Request) {
     days: summary,
   });
 }
+`);
+
+console.log('\\nGata! Acum ruleaza:');
+console.log('  git add .');
+console.log('  git commit -m "Extinde ligile si aduce meciuri pentru o saptamana in avans"');
+console.log('  git push');
