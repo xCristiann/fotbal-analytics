@@ -3,15 +3,29 @@
 
 const API_BASE = 'https://v3.football.api-sports.io';
 
+// Pauza intre cereri, ca sa nu depasim limita "per minut" a planului
+// gratuit (eroare 429). Ajusteaza aici daca tot apar erori 429 -
+// mareste valoarea; daca vrei sincronizare mai rapida pe plan platit
+// (limite mai mari), poti scadea valoarea.
+const REQUEST_DELAY_MS = 700;
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 function getHeaders() {
   return {
     'x-apisports-key': process.env.API_FOOTBALL_KEY || '',
   };
 }
 
-// Sezonul european se numeste dupa anul in care INCEPE (ex: sezonul
-// 2025/2026 se numeste "2025" in API). Regula: daca luna e iulie sau
-// mai tarziu, sezonul e anul curent; altfel e anul anterior.
+async function apiCall(url: string): Promise<{ data: any; status: number }> {
+  const res = await fetch(url, { headers: getHeaders() });
+  const data = await res.json();
+  await sleep(REQUEST_DELAY_MS);
+  return { data: data, status: res.status };
+}
+
 export function inferSeason(dateStr: string): number {
   const d = new Date(dateStr);
   const year = d.getUTCFullYear();
@@ -24,13 +38,9 @@ export interface FixturesResult {
   errors: any[];
 }
 
-// Ia TOATE meciurile unei ligi pe un sezon intreg (1 singur apel API).
-// Filtrarea pe data se face local, ca sa evitam restrictiile ciudate
-// ale planului gratuit pe parametrul "date=".
 export async function fetchSeasonFixtures(leagueId: number, season: number): Promise<FixturesResult> {
   const url = API_BASE + '/fixtures?league=' + leagueId + '&season=' + season;
-  const res = await fetch(url, { headers: getHeaders() });
-  const data = await res.json();
+  const { data, status } = await apiCall(url);
 
   const fixtures = (data && data.response) ? data.response : [];
   const errors: any[] = [];
@@ -38,7 +48,7 @@ export async function fetchSeasonFixtures(leagueId: number, season: number): Pro
     Array.isArray(data.errors) ? data.errors.length > 0 : Object.keys(data.errors).length > 0
   );
   if (hasErrors) {
-    errors.push({ leagueId: leagueId, season: season, httpStatus: res.status, apiErrors: data.errors, results: data.results });
+    errors.push({ leagueId: leagueId, season: season, httpStatus: status, apiErrors: data.errors, results: data.results });
   }
 
   return { fixtures: fixtures, errors: errors };
@@ -46,14 +56,18 @@ export async function fetchSeasonFixtures(leagueId: number, season: number): Pro
 
 export async function fetchTeamStatistics(teamId: number, leagueId: number, season: number) {
   const url = API_BASE + '/teams/statistics?team=' + teamId + '&league=' + leagueId + '&season=' + season;
-  const res = await fetch(url, { headers: getHeaders() });
-  const data = await res.json();
+  const { data } = await apiCall(url);
   return data.response;
 }
 
 export async function fetchOddsByFixture(fixtureId: number) {
   const url = API_BASE + '/odds?fixture=' + fixtureId;
-  const res = await fetch(url, { headers: getHeaders() });
-  const data = await res.json();
+  const { data } = await apiCall(url);
   return data.response;
+}
+
+export async function fetchHeadToHead(teamId1: number, teamId2: number) {
+  const url = API_BASE + '/fixtures/headtohead?h2h=' + teamId1 + '-' + teamId2 + '&last=8';
+  const { data } = await apiCall(url);
+  return (data && data.response) ? data.response : [];
 }
