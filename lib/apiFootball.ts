@@ -12,7 +12,7 @@ function getHeaders() {
 // Sezonul european se numeste dupa anul in care INCEPE (ex: sezonul
 // 2025/2026 se numeste "2025" in API). Regula: daca luna e iulie sau
 // mai tarziu, sezonul e anul curent; altfel e anul anterior.
-function inferSeason(dateStr: string): number {
+export function inferSeason(dateStr: string): number {
   const d = new Date(dateStr);
   const year = d.getUTCFullYear();
   const month = d.getUTCMonth() + 1;
@@ -24,26 +24,21 @@ export interface FixturesResult {
   errors: any[];
 }
 
-export async function fetchFixturesByDate(date: string, leagueIds: number[]): Promise<FixturesResult> {
-  const fixtures: any[] = [];
+// Ia TOATE meciurile unei ligi pe un sezon intreg (1 singur apel API).
+// Filtrarea pe data se face local, ca sa evitam restrictiile ciudate
+// ale planului gratuit pe parametrul "date=".
+export async function fetchSeasonFixtures(leagueId: number, season: number): Promise<FixturesResult> {
+  const url = API_BASE + '/fixtures?league=' + leagueId + '&season=' + season;
+  const res = await fetch(url, { headers: getHeaders() });
+  const data = await res.json();
+
+  const fixtures = (data && data.response) ? data.response : [];
   const errors: any[] = [];
-  const season = inferSeason(date);
-
-  for (const leagueId of leagueIds) {
-    const url = API_BASE + '/fixtures?date=' + date + '&league=' + leagueId + '&season=' + season;
-    const res = await fetch(url, { headers: getHeaders() });
-    const data = await res.json();
-
-    if (data && data.response) {
-      fixtures.push(...data.response);
-    }
-
-    const hasErrors = data && data.errors && (
-      Array.isArray(data.errors) ? data.errors.length > 0 : Object.keys(data.errors).length > 0
-    );
-    if (hasErrors) {
-      errors.push({ leagueId: leagueId, date: date, season: season, httpStatus: res.status, apiErrors: data.errors, results: data.results });
-    }
+  const hasErrors = data && data.errors && (
+    Array.isArray(data.errors) ? data.errors.length > 0 : Object.keys(data.errors).length > 0
+  );
+  if (hasErrors) {
+    errors.push({ leagueId: leagueId, season: season, httpStatus: res.status, apiErrors: data.errors, results: data.results });
   }
 
   return { fixtures: fixtures, errors: errors };
