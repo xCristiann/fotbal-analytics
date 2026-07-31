@@ -9,6 +9,16 @@ function getHeaders() {
   };
 }
 
+// Sezonul european se numeste dupa anul in care INCEPE (ex: sezonul
+// 2025/2026 se numeste "2025" in API). Regula: daca luna e iulie sau
+// mai tarziu, sezonul e anul curent; altfel e anul anterior.
+function inferSeason(dateStr: string): number {
+  const d = new Date(dateStr);
+  const year = d.getUTCFullYear();
+  const month = d.getUTCMonth() + 1;
+  return month >= 7 ? year : year - 1;
+}
+
 export interface FixturesResult {
   fixtures: any[];
   errors: any[];
@@ -17,7 +27,7 @@ export interface FixturesResult {
 export async function fetchFixturesByDate(date: string, leagueIds: number[]): Promise<FixturesResult> {
   const fixtures: any[] = [];
   const errors: any[] = [];
-  const season = new Date(date).getFullYear();
+  const season = inferSeason(date);
 
   for (const leagueId of leagueIds) {
     const url = API_BASE + '/fixtures?date=' + date + '&league=' + leagueId + '&season=' + season;
@@ -32,7 +42,7 @@ export async function fetchFixturesByDate(date: string, leagueIds: number[]): Pr
       Array.isArray(data.errors) ? data.errors.length > 0 : Object.keys(data.errors).length > 0
     );
     if (hasErrors) {
-      errors.push({ leagueId: leagueId, date: date, httpStatus: res.status, apiErrors: data.errors, results: data.results });
+      errors.push({ leagueId: leagueId, date: date, season: season, httpStatus: res.status, apiErrors: data.errors, results: data.results });
     }
   }
 
