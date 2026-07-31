@@ -1,4 +1,19 @@
-// Model de probabilitate bazat pe distributia Poisson, cu corectie
+#!/usr/bin/env node
+// Aduce lib/poisson.ts la zi cu Dixon-Coles + suport H2H
+// (acest fisier ramasese pe versiunea veche, deoarece scriptul
+// anterior care trebuia sa-l actualizeze n-a apucat sa ruleze).
+
+const fs = require('fs');
+const path = require('path');
+
+function writeFile(relativePath, content) {
+  const fullPath = path.join(__dirname, relativePath);
+  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+  fs.writeFileSync(fullPath, content, { encoding: 'utf8' });
+  console.log('Actualizat: ' + relativePath);
+}
+
+writeFile('lib/poisson.ts', `// Model de probabilitate bazat pe distributia Poisson, cu corectie
 // Dixon-Coles pentru scoruri mici si posibilitate de a integra istoric
 // head-to-head. Calculeaza sansele pentru principalele piete de pariuri.
 
@@ -133,3 +148,9 @@ export function calculateAllMarkets(
 
   return markets.sort((a, b) => b.probability - a.probability);
 }
+`);
+
+console.log('\\nGata! Acum ruleaza:');
+console.log('  git add .');
+console.log('  git commit -m "Repara poisson.ts: adauga exportul lipsa HeadToHeadStats"');
+console.log('  git push');
