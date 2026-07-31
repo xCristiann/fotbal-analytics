@@ -1,4 +1,74 @@
-import { NextResponse } from 'next/server';
+#!/usr/bin/env node
+// Adauga diagnostic real: arata erorile primite de la API-Football
+// in loc sa le ascunda tacut ca "0 meciuri gasite".
+
+const fs = require('fs');
+const path = require('path');
+
+function writeFile(relativePath, content) {
+  const fullPath = path.join(__dirname, relativePath);
+  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+  fs.writeFileSync(fullPath, content, { encoding: 'utf8' });
+  console.log('Actualizat: ' + relativePath);
+}
+
+writeFile('lib/apiFootball.ts', `// Client minimal pentru API-Football (api-sports.io / api-football.com)
+// Documentatie: https://www.api-football.com/documentation-v3
+
+const API_BASE = 'https://v3.football.api-sports.io';
+
+function getHeaders() {
+  return {
+    'x-apisports-key': process.env.API_FOOTBALL_KEY || '',
+  };
+}
+
+export interface FixturesResult {
+  fixtures: any[];
+  errors: any[];
+}
+
+export async function fetchFixturesByDate(date: string, leagueIds: number[]): Promise<FixturesResult> {
+  const fixtures: any[] = [];
+  const errors: any[] = [];
+  const season = new Date(date).getFullYear();
+
+  for (const leagueId of leagueIds) {
+    const url = API_BASE + '/fixtures?date=' + date + '&league=' + leagueId + '&season=' + season;
+    const res = await fetch(url, { headers: getHeaders() });
+    const data = await res.json();
+
+    if (data && data.response) {
+      fixtures.push(...data.response);
+    }
+
+    const hasErrors = data && data.errors && (
+      Array.isArray(data.errors) ? data.errors.length > 0 : Object.keys(data.errors).length > 0
+    );
+    if (hasErrors) {
+      errors.push({ leagueId: leagueId, date: date, httpStatus: res.status, apiErrors: data.errors, results: data.results });
+    }
+  }
+
+  return { fixtures: fixtures, errors: errors };
+}
+
+export async function fetchTeamStatistics(teamId: number, leagueId: number, season: number) {
+  const url = API_BASE + '/teams/statistics?team=' + teamId + '&league=' + leagueId + '&season=' + season;
+  const res = await fetch(url, { headers: getHeaders() });
+  const data = await res.json();
+  return data.response;
+}
+
+export async function fetchOddsByFixture(fixtureId: number) {
+  const url = API_BASE + '/odds?fixture=' + fixtureId;
+  const res = await fetch(url, { headers: getHeaders() });
+  const data = await res.json();
+  return data.response;
+}
+`);
+
+writeFile('app/api/sync/route.ts', `import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { fetchFixturesByDate, fetchTeamStatistics, fetchOddsByFixture } from '@/lib/apiFootball';
 import { calculateAllMarkets, TeamForm } from '@/lib/poisson';
@@ -139,3 +209,9 @@ export async function GET(request: Request) {
     apiErrors: allApiErrors.slice(0, 10),
   });
 }
+`);
+
+console.log('\\nGata! Acum ruleaza:');
+console.log('  git add .');
+console.log('  git commit -m "Adauga diagnostic pentru erorile API-Football"');
+console.log('  git push');

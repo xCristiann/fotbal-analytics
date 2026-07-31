@@ -9,19 +9,34 @@ function getHeaders() {
   };
 }
 
-export async function fetchFixturesByDate(date: string, leagueIds: number[]) {
-  const results: any[] = [];
+export interface FixturesResult {
+  fixtures: any[];
+  errors: any[];
+}
+
+export async function fetchFixturesByDate(date: string, leagueIds: number[]): Promise<FixturesResult> {
+  const fixtures: any[] = [];
+  const errors: any[] = [];
   const season = new Date(date).getFullYear();
 
   for (const leagueId of leagueIds) {
     const url = API_BASE + '/fixtures?date=' + date + '&league=' + leagueId + '&season=' + season;
     const res = await fetch(url, { headers: getHeaders() });
     const data = await res.json();
+
     if (data && data.response) {
-      results.push(...data.response);
+      fixtures.push(...data.response);
+    }
+
+    const hasErrors = data && data.errors && (
+      Array.isArray(data.errors) ? data.errors.length > 0 : Object.keys(data.errors).length > 0
+    );
+    if (hasErrors) {
+      errors.push({ leagueId: leagueId, date: date, httpStatus: res.status, apiErrors: data.errors, results: data.results });
     }
   }
-  return results;
+
+  return { fixtures: fixtures, errors: errors };
 }
 
 export async function fetchTeamStatistics(teamId: number, leagueId: number, season: number) {
