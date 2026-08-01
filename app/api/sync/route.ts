@@ -157,6 +157,7 @@ export async function GET(request: Request) {
   let totalWithAnalysis = 0;
   let fullAnalysisBudgetUsed = 0;
   const allApiErrors: any[] = [];
+  const debugInfo: any[] = [];
   const matchesPerDate: Record<string, number> = {};
   targetDates.forEach((d) => { matchesPerDate[d] = 0; });
 
@@ -284,6 +285,21 @@ export async function GET(request: Request) {
         const homeInjuries = extractInjuries(homeInjuriesRaw);
         const awayInjuries = extractInjuries(awayInjuriesRaw);
 
+        debugInfo.push({
+          match: homeTeam.name + ' - ' + awayTeam.name,
+          season: fixtureSeason,
+          dayBeforeMatch: dayBeforeMatch,
+          h2hFixturesRawCount: h2hFixturesRaw.length,
+          homeFixturesRawCount: homeFixturesRaw.length,
+          awayFixturesRawCount: awayFixturesRaw.length,
+          homeRecentFormCount: homeRecentForm.length,
+          awayRecentFormCount: awayRecentForm.length,
+          homeAvgCorners: homeAvgCorners,
+          awayAvgCorners: awayAvgCorners,
+          homeInjuriesCount: homeInjuries.length,
+          awayInjuriesCount: awayInjuries.length,
+        });
+
         await supabaseAdmin.from('match_analysis').upsert(
           {
             match_id: matchRow.id,
@@ -324,5 +340,6 @@ export async function GET(request: Request) {
     fullAnalysisBudgetUsed: fullAnalysisBudgetUsed,
     days: summary,
     apiErrors: allApiErrors.slice(0, 15),
+    debugInfo: debugInfo,
   });
 }
