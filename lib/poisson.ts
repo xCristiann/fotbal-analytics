@@ -1,6 +1,5 @@
-// Model de probabilitate bazat pe distributia Poisson, cu corectie
-// Dixon-Coles pentru scoruri mici si posibilitate de a integra istoric
-// head-to-head. Calculeaza sansele pentru principalele piete de pariuri.
+// Model de probabilitate: Poisson + Dixon-Coles pentru scoruri mici,
+// medii de goluri specifice per liga, piata de cornere, integrare H2H.
 
 export interface TeamForm {
   avgGoalsScored: number;
@@ -11,6 +10,11 @@ export interface HeadToHeadStats {
   matchesCount: number;
   bttsRate: number;
   over25Rate: number;
+}
+
+export interface LeagueAverages {
+  avgHomeGoals: number;
+  avgAwayGoals: number;
 }
 
 export interface MarketProbability {
@@ -29,14 +33,13 @@ function factorial(n: number): number {
   return result;
 }
 
-function poissonProbability(lambda: number, k: number): number {
+export function poissonProbability(lambda: number, k: number): number {
   return (Math.pow(lambda, k) * Math.exp(-lambda)) / factorial(k);
 }
 
-const LEAGUE_AVG_HOME_GOALS = 1.45;
-const LEAGUE_AVG_AWAY_GOALS = 1.15;
+const DEFAULT_LEAGUE_AVG_HOME_GOALS = 1.45;
+const DEFAULT_LEAGUE_AVG_AWAY_GOALS = 1.15;
 const MAX_GOALS = 8;
-
 const DIXON_COLES_RHO = -0.13;
 
 function dixonColesTau(x: number, y: number, lambdaHome: number, lambdaAway: number, rho: number): number {
@@ -49,15 +52,19 @@ function dixonColesTau(x: number, y: number, lambdaHome: number, lambdaAway: num
 
 export function calculateExpectedGoals(
   home: TeamForm,
-  away: TeamForm
+  away: TeamForm,
+  leagueAvg?: LeagueAverages
 ): { lambdaHome: number; lambdaAway: number } {
-  const homeAttackStrength = home.avgGoalsScored / LEAGUE_AVG_HOME_GOALS;
-  const homeDefenseWeakness = home.avgGoalsConceded / LEAGUE_AVG_AWAY_GOALS;
-  const awayAttackStrength = away.avgGoalsScored / LEAGUE_AVG_AWAY_GOALS;
-  const awayDefenseWeakness = away.avgGoalsConceded / LEAGUE_AVG_HOME_GOALS;
+  const avgHome = leagueAvg?.avgHomeGoals ?? DEFAULT_LEAGUE_AVG_HOME_GOALS;
+  const avgAway = leagueAvg?.avgAwayGoals ?? DEFAULT_LEAGUE_AVG_AWAY_GOALS;
 
-  const lambdaHome = homeAttackStrength * awayDefenseWeakness * LEAGUE_AVG_HOME_GOALS;
-  const lambdaAway = awayAttackStrength * homeDefenseWeakness * LEAGUE_AVG_AWAY_GOALS;
+  const homeAttackStrength = home.avgGoalsScored / avgHome;
+  const homeDefenseWeakness = home.avgGoalsConceded / avgAway;
+  const awayAttackStrength = away.avgGoalsScored / avgAway;
+  const awayDefenseWeakness = away.avgGoalsConceded / avgHome;
+
+  const lambdaHome = homeAttackStrength * awayDefenseWeakness * avgHome;
+  const lambdaAway = awayAttackStrength * homeDefenseWeakness * avgAway;
 
   return { lambdaHome, lambdaAway };
 }
@@ -65,9 +72,10 @@ export function calculateExpectedGoals(
 export function calculateAllMarkets(
   home: TeamForm,
   away: TeamForm,
-  h2h?: HeadToHeadStats
+  h2h?: HeadToHeadStats,
+  leagueAvg?: LeagueAverages
 ): MarketProbability[] {
-  const { lambdaHome, lambdaAway } = calculateExpectedGoals(home, away);
+  const { lambdaHome, lambdaAway } = calculateExpectedGoals(home, away, leagueAvg);
 
   const scoreMatrix: number[][] = [];
   let totalMass = 0;
@@ -101,7 +109,6 @@ export function calculateAllMarkets(
       else pAwayWin += p;
 
       if (h >= 1 && a >= 1) pBttsYes += p;
-
       if (h + a > 2.5) pOver25 += p;
     }
   }
@@ -132,4 +139,45 @@ export function calculateAllMarkets(
   ];
 
   return markets.sort((a, b) => b.probability - a.probability);
+}
+
+const CORNER_THRESHOLDS = [8.5, 9.5, 10.5];
+
+// Model Poisson separat pentru totalul de cornere (suma ambelor echipe),
+// bazat pe media reala din ultimele 5 meciuri ale fiecarei echipe.
+export function calculateCornerMarkets(
+  homeAvgCorners: number | null,
+  awayAvgCorners: number | null
+): MarketProbability[] {
+  if (homeAvgCorners === null || awayAvgCorners === null) return [];
+
+  const lambdaTotal = homeAvgCorners + awayAvgCorners;
+  const markets: MarketProbability[] = [];
+
+  for (const threshold of CORNER_THRESHOLDS) {
+    const kMax = Math.floor(threshold);
+    let pUnder = 0;
+    for (let k = 0; k <= kMax; k++) {
+      pUnder += poissonProbability(lambdaTotal, k);
+    }
+    pUnder = Math.max(0.01, Math.min(0.99, pUnder));
+    const pOver = 1 - pUnder;
+
+    markets.push({
+      market: 'CORNERS',
+      selection: 'OVER_' + threshold,
+      label: 'Peste ' + threshold + ' cornere (total)',
+      probability: pOver,
+      fairOdds: 1 / pOver,
+    });
+    markets.push({
+      market: 'CORNERS',
+      selection: 'UNDER_' + threshold,
+      label: 'Sub ' + threshold + ' cornere (total)',
+      probability: pUnder,
+      fairOdds: 1 / pUnder,
+    });
+  }
+
+  return markets;
 }
