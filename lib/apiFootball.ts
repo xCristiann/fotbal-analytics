@@ -28,6 +28,12 @@ export function inferSeason(dateStr: string): number {
   return month >= 7 ? year : year - 1;
 }
 
+export function subtractOneDay(dateStr: string): string {
+  const d = new Date(dateStr);
+  d.setUTCDate(d.getUTCDate() - 1);
+  return d.toISOString().split('T')[0];
+}
+
 export interface FixturesResult {
   fixtures: any[];
   errors: any[];
@@ -61,14 +67,17 @@ export async function fetchOddsByFixture(fixtureId: number) {
   return data.response;
 }
 
-export async function fetchHeadToHead(teamId1: number, teamId2: number) {
-  const url = API_BASE + '/fixtures/headtohead?h2h=' + teamId1 + '-' + teamId2 + '&last=5';
+// Acum cu sezon + limita superioara de data (to=), ca sa nu loveasca
+// restrictia de sezon curent si sa nu ia meciuri din viitorul fata
+// de meciul analizat.
+export async function fetchHeadToHead(teamId1: number, teamId2: number, season: number, toDate: string) {
+  const url = API_BASE + '/fixtures/headtohead?h2h=' + teamId1 + '-' + teamId2 + '&season=' + season + '&to=' + toDate;
   const { data } = await apiCall(url);
   return (data && data.response) ? data.response : [];
 }
 
-export async function fetchTeamRecentFixtures(teamId: number, last: number) {
-  const url = API_BASE + '/fixtures?team=' + teamId + '&last=' + last;
+export async function fetchTeamFixturesBefore(teamId: number, season: number, toDate: string) {
+  const url = API_BASE + '/fixtures?team=' + teamId + '&season=' + season + '&to=' + toDate;
   const { data } = await apiCall(url);
   return (data && data.response) ? data.response : [];
 }
