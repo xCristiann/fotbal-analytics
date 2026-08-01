@@ -2,11 +2,6 @@
 // Documentatie: https://www.api-football.com/documentation-v3
 
 const API_BASE = 'https://v3.football.api-sports.io';
-
-// Pauza intre cereri, ca sa nu depasim limita "per minut" a planului
-// gratuit (eroare 429). Ajusteaza aici daca tot apar erori 429 -
-// mareste valoarea; daca vrei sincronizare mai rapida pe plan platit
-// (limite mai mari), poti scadea valoarea.
 const REQUEST_DELAY_MS = 700;
 
 function sleep(ms: number): Promise<void> {
@@ -67,7 +62,25 @@ export async function fetchOddsByFixture(fixtureId: number) {
 }
 
 export async function fetchHeadToHead(teamId1: number, teamId2: number) {
-  const url = API_BASE + '/fixtures/headtohead?h2h=' + teamId1 + '-' + teamId2 + '&last=8';
+  const url = API_BASE + '/fixtures/headtohead?h2h=' + teamId1 + '-' + teamId2 + '&last=5';
+  const { data } = await apiCall(url);
+  return (data && data.response) ? data.response : [];
+}
+
+export async function fetchTeamRecentFixtures(teamId: number, last: number) {
+  const url = API_BASE + '/fixtures?team=' + teamId + '&last=' + last;
+  const { data } = await apiCall(url);
+  return (data && data.response) ? data.response : [];
+}
+
+export async function fetchFixtureStatistics(fixtureId: number) {
+  const url = API_BASE + '/fixtures/statistics?fixture=' + fixtureId;
+  const { data } = await apiCall(url);
+  return (data && data.response) ? data.response : [];
+}
+
+export async function fetchInjuries(teamId: number, season: number) {
+  const url = API_BASE + '/injuries?team=' + teamId + '&season=' + season;
   const { data } = await apiCall(url);
   return (data && data.response) ? data.response : [];
 }

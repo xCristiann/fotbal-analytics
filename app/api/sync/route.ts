@@ -5,23 +5,23 @@ import {
   fetchTeamStatistics,
   fetchOddsByFixture,
   fetchHeadToHead,
+  fetchTeamRecentFixtures,
+  fetchFixtureStatistics,
+  fetchInjuries,
   inferSeason,
 } from '@/lib/apiFootball';
 import { calculateAllMarkets, TeamForm, HeadToHeadStats } from '@/lib/poisson';
 
-// Timp maxim de executie permis pentru acest endpoint (secunde).
-// Vercel Hobby permite pana la 60s fara Fluid Compute.
 export const maxDuration = 60;
 
 const TRACKED_LEAGUES = [283, 39, 140, 135, 78, 61, 2, 3, 848];
 const DAYS_AHEAD = 7;
 const DAYS_WITH_FULL_ANALYSIS = 3;
 
-// Limita de siguranta: maxim atatea meciuri primesc analiza completa
-// (stats + H2H + cote) intr-o singura rulare, ca sa nu depasim timpul
-// maxim de executie. Meciurile ramase primesc analiza la urmatoarea
-// rulare (cron-ul zilnic reia procesul).
-const MAX_FIXTURES_FULL_ANALYSIS = 15;
+// Analiza completa (forma, cornere, accidentari) e mult mai scumpa in
+// cereri API (~18 per meci) decat analiza de baza (~4 per meci). Limita
+// scade corespunzator, ca sa ramanem sub timpul maxim de executie.
+const MAX_FIXTURES_FULL_ANALYSIS = 4;
 
 function formatDate(date: Date): string {
   return date.toISOString().split('T')[0];
@@ -69,6 +69,62 @@ function computeH2HStats(h2hFixtures: any[]): HeadToHeadStats | undefined {
     bttsRate: bttsCount / finished.length,
     over25Rate: over25Count / finished.length,
   };
+}
+
+function extractRecentForm(fixtures: any[], teamId: number): any[] {
+  return fixtures
+    .filter((f: any) => f?.fixture?.status?.short === 'FT')
+    .map((f: any) => {
+      const isHome = f.teams.home.id === teamId;
+      const goalsFor = isHome ? f.goals.home : f.goals.away;
+      const goalsAgainst = isHome ? f.goals.away : f.goals.home;
+      const opponent = isHome ? f.teams.away.name : f.teams.home.name;
+      let result = 'D';
+      if (goalsFor > goalsAgainst) result = 'W';
+      else if (goalsFor < goalsAgainst) result = 'L';
+      return {
+        date: f.fixture.date,
+        opponent: opponent,
+        venue: isHome ? 'acasa' : 'deplasare',
+        scoreFor: goalsFor,
+        scoreAgainst: goalsAgainst,
+        result: result,
+      };
+    });
+}
+
+function extractH2HList(fixtures: any[]): any[] {
+  return fixtures
+    .filter((f: any) => f?.fixture?.status?.short === 'FT')
+    .slice(0, 5)
+    .map((f: any) => ({
+      date: f.fixture.date,
+      homeTeam: f.teams.home.name,
+      awayTeam: f.teams.away.name,
+      homeGoals: f.goals.home,
+      awayGoals: f.goals.away,
+    }));
+}
+
+function extractCorners(statsResponse: any[], teamId: number): number | null {
+  const teamBlock = statsResponse.find((b: any) => b?.team?.id === teamId);
+  if (!teamBlock) return null;
+  const cornerStat = (teamBlock.statistics || []).find((s: any) => s.type === 'Corner Kicks');
+  if (!cornerStat || cornerStat.value === null || cornerStat.value === undefined) return null;
+  return Number(cornerStat.value);
+}
+
+function computeAvgCorners(values: (number | null)[]): number | null {
+  const valid = values.filter((v): v is number => v !== null && !isNaN(v));
+  if (valid.length === 0) return null;
+  return valid.reduce((s, v) => s + v, 0) / valid.length;
+}
+
+function extractInjuries(injuriesResponse: any[]): any[] {
+  return injuriesResponse.slice(0, 10).map((item: any) => ({
+    playerName: item?.player?.name || 'Necunoscut',
+    reason: item?.player?.reason || item?.player?.type || 'Nespecificat',
+  }));
 }
 
 export async function GET(request: Request) {
@@ -165,6 +221,7 @@ export async function GET(request: Request) {
 
         const h2hFixtures = await fetchHeadToHead(homeTeam.id, awayTeam.id);
         const h2hStats = computeH2HStats(h2hFixtures);
+        const h2hList = extractH2HList(h2hFixtures);
 
         const markets = calculateAllMarkets(homeForm, awayForm, h2hStats);
 
@@ -200,6 +257,44 @@ export async function GET(request: Request) {
             await supabaseAdmin.from('odds').insert(oddsRows);
           }
         }
+
+        const homeRecentFixtures = await fetchTeamRecentFixtures(homeTeam.id, 5);
+        const awayRecentFixtures = await fetchTeamRecentFixtures(awayTeam.id, 5);
+
+        const homeRecentForm = extractRecentForm(homeRecentFixtures, homeTeam.id);
+        const awayRecentForm = extractRecentForm(awayRecentFixtures, awayTeam.id);
+
+        const homeCornersValues: (number | null)[] = [];
+        for (const f of homeRecentFixtures) {
+          const stats = await fetchFixtureStatistics(f.fixture.id);
+          homeCornersValues.push(extractCorners(stats, homeTeam.id));
+        }
+        const awayCornersValues: (number | null)[] = [];
+        for (const f of awayRecentFixtures) {
+          const stats = await fetchFixtureStatistics(f.fixture.id);
+          awayCornersValues.push(extractCorners(stats, awayTeam.id));
+        }
+        const homeAvgCorners = computeAvgCorners(homeCornersValues);
+        const awayAvgCorners = computeAvgCorners(awayCornersValues);
+
+        const homeInjuriesRaw = await fetchInjuries(homeTeam.id, fixtureSeason);
+        const awayInjuriesRaw = await fetchInjuries(awayTeam.id, fixtureSeason);
+        const homeInjuries = extractInjuries(homeInjuriesRaw);
+        const awayInjuries = extractInjuries(awayInjuriesRaw);
+
+        await supabaseAdmin.from('match_analysis').upsert(
+          {
+            match_id: matchRow.id,
+            home_recent_form: homeRecentForm,
+            away_recent_form: awayRecentForm,
+            h2h_matches: h2hList,
+            home_avg_corners: homeAvgCorners,
+            away_avg_corners: awayAvgCorners,
+            home_injuries: homeInjuries,
+            away_injuries: awayInjuries,
+          },
+          { onConflict: 'match_id' }
+        );
 
         totalWithAnalysis++;
       } catch (err: any) {
