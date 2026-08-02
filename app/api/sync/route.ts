@@ -34,7 +34,12 @@ const MAX_FIXTURES_FULL_ANALYSIS = Number(process.env.MAX_FIXTURES_FULL_ANALYSIS
 // Plasa de siguranta REALA: ne oprim din analiza completa dupa acest
 // timp scurs (milisecunde), indiferent cate meciuri am facut. Lasam
 // marja de 15s fata de limita de 60s a Vercel, pentru raspunsul final.
-const SAFE_TIME_BUDGET_MS = Number(process.env.SAFE_TIME_BUDGET_MS || '45000');
+const SAFE_TIME_BUDGET_MS = Number(process.env.SAFE_TIME_BUDGET_MS || '35000');
+
+// Buget separat pentru faza de LISTARE (inainte de analiza completa).
+// Daca listarea celor 18 ligi ia prea mult, ne oprim din a mai cere
+// ligi noi si lucram cu ce am adunat pana atunci.
+const LISTING_TIME_BUDGET_MS = Number(process.env.LISTING_TIME_BUDGET_MS || '20000');
 
 const RECENT_FORM_WEIGHT = 0.4;
 const RECENCY_WEIGHTS = [0.35, 0.25, 0.18, 0.13, 0.09];
@@ -245,6 +250,10 @@ export async function GET(request: Request) {
   targetDates.forEach((d) => { matchesPerDate[d] = 0; });
 
   for (const leagueId of TRACKED_LEAGUES) {
+    if (Date.now() - startTime > LISTING_TIME_BUDGET_MS) {
+      allApiErrors.push({ context: 'listare ligi', message: 'Oprit din listare dupa ' + LISTING_TIME_BUDGET_MS + 'ms - au ramas ligi neverificate in aceasta rulare.' });
+      break;
+    }
     const result = await fetchSeasonFixtures(leagueId, season);
     if (result.errors.length > 0) {
       allApiErrors.push(...result.errors);
@@ -453,6 +462,8 @@ export async function GET(request: Request) {
     success: true,
     season: season,
     maxFixturesFullAnalysis: MAX_FIXTURES_FULL_ANALYSIS,
+    listingTimeBudgetMs: LISTING_TIME_BUDGET_MS,
+    safeTimeBudgetMs: SAFE_TIME_BUDGET_MS,
     elapsedMs: Date.now() - startTime,
     stoppedByTimeBudget: (Date.now() - startTime) > SAFE_TIME_BUDGET_MS,
     processed: totalProcessed,
