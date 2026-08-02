@@ -1,4 +1,18 @@
-// Genereaza o scurta analiza in limbaj natural, STRICT pe baza datelor
+#!/usr/bin/env node
+// Inlocuieste OpenAI cu Google Gemini pentru analiza AI - complet
+// gratuit, fara card, 1500 cereri/zi (mult peste ce ne trebuie).
+
+const fs = require('fs');
+const path = require('path');
+
+function writeFile(relativePath, content) {
+  const fullPath = path.join(__dirname, relativePath);
+  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+  fs.writeFileSync(fullPath, content, { encoding: 'utf8' });
+  console.log('Actualizat: ' + relativePath);
+}
+
+writeFile('lib/aiAnalysis.ts', `// Genereaza o scurta analiza in limbaj natural, STRICT pe baza datelor
 // statistice deja calculate. Foloseste Google Gemini (gratuit, fara
 // card, 1500 cereri/zi pe planul free - mult peste ce ne trebuie).
 // Daca GEMINI_API_KEY nu e setat, functia returneaza null si sistemul
@@ -74,7 +88,7 @@ function buildUserPrompt(input: AIAnalysisInput): string {
   lines.push('Cartonase medii (ultimele 5): ' + input.homeTeam + ' ' + (input.homeAvgCards !== null ? input.homeAvgCards.toFixed(1) : 'necunoscut') + ', ' + input.awayTeam + ' ' + (input.awayAvgCards !== null ? input.awayAvgCards.toFixed(1) : 'necunoscut'));
   lines.push('Accidentari raportate: ' + input.homeTeam + ' ' + input.homeInjuriesCount + ', ' + input.awayTeam + ' ' + input.awayInjuriesCount);
 
-  return lines.join('\n');
+  return lines.join('\\n');
 }
 
 export async function generateAIAnalysis(input: AIAnalysisInput): Promise<string | null> {
@@ -105,3 +119,9 @@ export async function generateAIAnalysis(input: AIAnalysisInput): Promise<string
     return null;
   }
 }
+`);
+
+console.log('\\nGata! Acum ruleaza:');
+console.log('  git add .');
+console.log('  git commit -m "Trece analiza AI de pe OpenAI pe Google Gemini (gratuit)"');
+console.log('  git push');
