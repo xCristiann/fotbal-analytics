@@ -1,5 +1,6 @@
 // Model de probabilitate: Poisson + Dixon-Coles pentru scoruri mici,
-// medii de goluri specifice per liga, piata de cornere, integrare H2H.
+// medii de goluri specifice per liga, piata de cornere si cartonase,
+// integrare H2H.
 
 export interface TeamForm {
   avgGoalsScored: number;
@@ -142,19 +143,21 @@ export function calculateAllMarkets(
 }
 
 const CORNER_THRESHOLDS = [8.5, 9.5, 10.5];
+const CARD_THRESHOLDS = [3.5, 4.5, 5.5];
 
-// Model Poisson separat pentru totalul de cornere (suma ambelor echipe),
-// bazat pe media reala din ultimele 5 meciuri ale fiecarei echipe.
-export function calculateCornerMarkets(
-  homeAvgCorners: number | null,
-  awayAvgCorners: number | null
+function calculateTotalOverUnderMarkets(
+  homeAvg: number | null,
+  awayAvg: number | null,
+  thresholds: number[],
+  marketName: string,
+  unitLabel: string
 ): MarketProbability[] {
-  if (homeAvgCorners === null || awayAvgCorners === null) return [];
+  if (homeAvg === null || awayAvg === null) return [];
 
-  const lambdaTotal = homeAvgCorners + awayAvgCorners;
+  const lambdaTotal = homeAvg + awayAvg;
   const markets: MarketProbability[] = [];
 
-  for (const threshold of CORNER_THRESHOLDS) {
+  for (const threshold of thresholds) {
     const kMax = Math.floor(threshold);
     let pUnder = 0;
     for (let k = 0; k <= kMax; k++) {
@@ -164,20 +167,31 @@ export function calculateCornerMarkets(
     const pOver = 1 - pUnder;
 
     markets.push({
-      market: 'CORNERS',
+      market: marketName,
       selection: 'OVER_' + threshold,
-      label: 'Peste ' + threshold + ' cornere (total)',
+      label: 'Peste ' + threshold + ' ' + unitLabel + ' (total)',
       probability: pOver,
       fairOdds: 1 / pOver,
     });
     markets.push({
-      market: 'CORNERS',
+      market: marketName,
       selection: 'UNDER_' + threshold,
-      label: 'Sub ' + threshold + ' cornere (total)',
+      label: 'Sub ' + threshold + ' ' + unitLabel + ' (total)',
       probability: pUnder,
       fairOdds: 1 / pUnder,
     });
   }
 
   return markets;
+}
+
+// Model Poisson pentru totalul de cornere (suma ambelor echipe),
+// bazat pe media reala din ultimele 5 meciuri ale fiecarei echipe.
+export function calculateCornerMarkets(homeAvgCorners: number | null, awayAvgCorners: number | null): MarketProbability[] {
+  return calculateTotalOverUnderMarkets(homeAvgCorners, awayAvgCorners, CORNER_THRESHOLDS, 'CORNERS', 'cornere');
+}
+
+// Acelasi model, pentru cartonase (galbene + rosii insumate).
+export function calculateCardMarkets(homeAvgCards: number | null, awayAvgCards: number | null): MarketProbability[] {
+  return calculateTotalOverUnderMarkets(homeAvgCards, awayAvgCards, CARD_THRESHOLDS, 'CARDS', 'cartonase');
 }

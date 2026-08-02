@@ -10,22 +10,20 @@ import {
   fetchInjuries,
   inferSeason,
 } from '@/lib/apiFootball';
-import { calculateAllMarkets, calculateCornerMarkets, TeamForm, HeadToHeadStats, LeagueAverages } from '@/lib/poisson';
+import { calculateAllMarkets, calculateCornerMarkets, calculateCardMarkets, TeamForm, HeadToHeadStats, LeagueAverages } from '@/lib/poisson';
 
 export const maxDuration = 60;
 
 const TRACKED_LEAGUES = [283, 39, 140, 135, 78, 61, 2, 3, 848];
 const DAYS_AHEAD = 7;
 const DAYS_WITH_FULL_ANALYSIS = 3;
-const MAX_FIXTURES_FULL_ANALYSIS = 4;
 
-// Pondere pentru forma recenta (ultimele 5 meciuri) fata de statisticile
-// pe tot sezonul. 0.4 = 40% forma recenta, 60% statistica sezon/venue.
+// Configurabil din Vercel (Settings -> Environment Variables), fara
+// cod nou. Creste-l dupa ce treci pe plan platit la API-Football.
+const MAX_FIXTURES_FULL_ANALYSIS = Number(process.env.MAX_FIXTURES_FULL_ANALYSIS || '4');
+
 const RECENT_FORM_WEIGHT = 0.4;
 const RECENCY_WEIGHTS = [0.35, 0.25, 0.18, 0.13, 0.09];
-
-// Daca o echipa are cel putin atatea accidentari raportate, ii scadem
-// usor atacul. Euristica simpla, nu inlocuieste o analiza pe jucator.
 const INJURY_PENALTY_THRESHOLD = 3;
 const INJURY_PENALTY_FACTOR = 0.95;
 
@@ -67,8 +65,6 @@ function filterBeforeDateAndTakeLast(fixtures: any[], beforeDateStr: string, n: 
   return finished.slice(0, n);
 }
 
-// Media reala de goluri (acasa/deplasare) calculata din meciurile
-// terminate ale ligii respective, nu o constanta fixa pentru toate ligile.
 function computeLeagueAverages(seasonFixtures: any[]): LeagueAverages {
   const finished = seasonFixtures.filter((f: any) => f?.fixture?.status?.short === 'FT');
   if (finished.length === 0) {
@@ -83,7 +79,6 @@ function computeLeagueAverages(seasonFixtures: any[]): LeagueAverages {
   return { avgHomeGoals: sumHome / finished.length, avgAwayGoals: sumAway / finished.length };
 }
 
-// Forma recenta ponderata: meciurile mai recente conteaza mai mult.
 function computeRecencyWeightedForm(recentFixtures: any[], teamId: number): { avgScored: number; avgConceded: number } | null {
   if (recentFixtures.length === 0) return null;
 
@@ -174,7 +169,19 @@ function extractCorners(statsResponse: any[], teamId: number): number | null {
   return Number(cornerStat.value);
 }
 
-function computeAvgCorners(values: (number | null)[]): number | null {
+// Refolosim ACELASI raspuns de statistici (nicio cerere API in plus).
+function extractCards(statsResponse: any[], teamId: number): number | null {
+  const teamBlock = statsResponse.find((b: any) => b?.team?.id === teamId);
+  if (!teamBlock) return null;
+  const yellowStat = (teamBlock.statistics || []).find((s: any) => s.type === 'Yellow Cards');
+  const redStat = (teamBlock.statistics || []).find((s: any) => s.type === 'Red Cards');
+  const yellow = yellowStat && yellowStat.value !== null && yellowStat.value !== undefined ? Number(yellowStat.value) : 0;
+  const red = redStat && redStat.value !== null && redStat.value !== undefined ? Number(redStat.value) : 0;
+  if (!yellowStat && !redStat) return null;
+  return yellow + red;
+}
+
+function computeAverage(values: (number | null)[]): number | null {
   const valid = values.filter((v): v is number => v !== null && !isNaN(v));
   if (valid.length === 0) return null;
   return valid.reduce((s, v) => s + v, 0) / valid.length;
@@ -305,17 +312,23 @@ export async function GET(request: Request) {
         let awayForm = blendWithRecentForm(awaySeasonBlendForm, awayRecencyGoals);
 
         const homeCornersValues: (number | null)[] = [];
+        const homeCardsValues: (number | null)[] = [];
         for (const f of homeRecentFixtures) {
           const stats = await fetchFixtureStatistics(f.fixture.id);
           homeCornersValues.push(extractCorners(stats, homeTeam.id));
+          homeCardsValues.push(extractCards(stats, homeTeam.id));
         }
         const awayCornersValues: (number | null)[] = [];
+        const awayCardsValues: (number | null)[] = [];
         for (const f of awayRecentFixtures) {
           const stats = await fetchFixtureStatistics(f.fixture.id);
           awayCornersValues.push(extractCorners(stats, awayTeam.id));
+          awayCardsValues.push(extractCards(stats, awayTeam.id));
         }
-        const homeAvgCorners = computeAvgCorners(homeCornersValues);
-        const awayAvgCorners = computeAvgCorners(awayCornersValues);
+        const homeAvgCorners = computeAverage(homeCornersValues);
+        const awayAvgCorners = computeAverage(awayCornersValues);
+        const homeAvgCards = computeAverage(homeCardsValues);
+        const awayAvgCards = computeAverage(awayCardsValues);
 
         const homeInjuriesResult = await fetchInjuries(homeTeam.id, fixtureSeason);
         if (homeInjuriesResult.errors.length > 0) allApiErrors.push(...homeInjuriesResult.errors);
@@ -330,7 +343,8 @@ export async function GET(request: Request) {
 
         const goalMarkets = calculateAllMarkets(homeForm, awayForm, h2hStats, leagueAvg);
         const cornerMarkets = calculateCornerMarkets(homeAvgCorners, awayAvgCorners);
-        const allMarkets = goalMarkets.concat(cornerMarkets).sort((a, b) => b.probability - a.probability);
+        const cardMarkets = calculateCardMarkets(homeAvgCards, awayAvgCards);
+        const allMarkets = goalMarkets.concat(cornerMarkets, cardMarkets).sort((a, b) => b.probability - a.probability);
 
         await supabaseAdmin.from('predictions').delete().eq('match_id', matchRow.id);
         const predictionRows = allMarkets.map((m) => ({
@@ -373,6 +387,8 @@ export async function GET(request: Request) {
             h2h_matches: h2hList,
             home_avg_corners: homeAvgCorners,
             away_avg_corners: awayAvgCorners,
+            home_avg_cards: homeAvgCards,
+            away_avg_cards: awayAvgCards,
             home_injuries: homeInjuries,
             away_injuries: awayInjuries,
           },
@@ -400,6 +416,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     success: true,
     season: season,
+    maxFixturesFullAnalysis: MAX_FIXTURES_FULL_ANALYSIS,
     processed: totalProcessed,
     withAnalysis: totalWithAnalysis,
     fullAnalysisBudgetUsed: fullAnalysisBudgetUsed,

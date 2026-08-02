@@ -2,7 +2,11 @@
 // Documentatie: https://www.api-football.com/documentation-v3
 
 const API_BASE = 'https://v3.football.api-sports.io';
-const REQUEST_DELAY_MS = 700;
+
+// Configurabil din Vercel (Environment Variables), fara sa mai fie
+// nevoie de alt cod. Dupa ce treci pe plan platit, poti scadea
+// API_REQUEST_DELAY_MS (limita per-minut e mult mai mare).
+const REQUEST_DELAY_MS = Number(process.env.API_REQUEST_DELAY_MS || '700');
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -67,8 +71,6 @@ export async function fetchOddsByFixture(fixtureId: number) {
   return data.response;
 }
 
-// Fara parametrul "to" (nu functiona corect). Luam TOATE meciurile
-// echipei pe sezon si filtram pe data local, in route.ts.
 export async function fetchTeamSeasonFixtures(teamId: number, season: number): Promise<FixturesResult> {
   const url = API_BASE + '/fixtures?team=' + teamId + '&season=' + season;
   const { data, errors } = await apiCall(url);

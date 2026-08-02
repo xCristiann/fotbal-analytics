@@ -53,6 +53,8 @@ interface MatchAnalysis {
   h2h_matches: H2HEntry[] | null;
   home_avg_corners: number | null;
   away_avg_corners: number | null;
+  home_avg_cards: number | null;
+  away_avg_cards: number | null;
   home_injuries: InjuryEntry[] | null;
   away_injuries: InjuryEntry[] | null;
 }
@@ -108,7 +110,7 @@ export default function MatchDetailPage() {
 
       const { data: analysisData } = await supabaseBrowser
         .from('match_analysis')
-        .select('home_recent_form, away_recent_form, h2h_matches, home_avg_corners, away_avg_corners, home_injuries, away_injuries')
+        .select('home_recent_form, away_recent_form, h2h_matches, home_avg_corners, away_avg_corners, home_avg_cards, away_avg_cards, home_injuries, away_injuries')
         .eq('match_id', matchId)
         .maybeSingle();
 
@@ -241,19 +243,33 @@ export default function MatchDetailPage() {
               </>
             )}
 
-            {analysis && (analysis.home_avg_corners !== null || analysis.away_avg_corners !== null) && (
+            {analysis && (analysis.home_avg_corners !== null || analysis.away_avg_corners !== null || analysis.home_avg_cards !== null || analysis.away_avg_cards !== null) && (
               <>
                 <h2 className="text-sm font-semibold text-slate-400 mb-3 uppercase tracking-wide">
-                  Cornere medii (ultimele 5 meciuri)
+                  Medii (ultimele 5 meciuri)
                 </h2>
                 <div className="grid grid-cols-2 gap-4 mb-8">
-                  <div className="bg-slate-900 border border-slate-800 rounded-lg px-4 py-3 text-center">
-                    <p className="text-xs text-slate-500 mb-1">{match.home_team_name}</p>
-                    <p className="text-lg font-semibold">{analysis.home_avg_corners !== null ? analysis.home_avg_corners.toFixed(1) : '-'}</p>
+                  <div className="bg-slate-900 border border-slate-800 rounded-lg px-4 py-3">
+                    <p className="text-xs text-slate-500 mb-2">{match.home_team_name}</p>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-slate-400">Cornere</span>
+                      <span className="font-semibold">{analysis.home_avg_corners !== null ? analysis.home_avg_corners.toFixed(1) : '-'}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-400">Cartonase</span>
+                      <span className="font-semibold">{analysis.home_avg_cards !== null ? analysis.home_avg_cards.toFixed(1) : '-'}</span>
+                    </div>
                   </div>
-                  <div className="bg-slate-900 border border-slate-800 rounded-lg px-4 py-3 text-center">
-                    <p className="text-xs text-slate-500 mb-1">{match.away_team_name}</p>
-                    <p className="text-lg font-semibold">{analysis.away_avg_corners !== null ? analysis.away_avg_corners.toFixed(1) : '-'}</p>
+                  <div className="bg-slate-900 border border-slate-800 rounded-lg px-4 py-3">
+                    <p className="text-xs text-slate-500 mb-2">{match.away_team_name}</p>
+                    <div className="flex justify-between text-sm mb-1">
+                      <span className="text-slate-400">Cornere</span>
+                      <span className="font-semibold">{analysis.away_avg_corners !== null ? analysis.away_avg_corners.toFixed(1) : '-'}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-slate-400">Cartonase</span>
+                      <span className="font-semibold">{analysis.away_avg_cards !== null ? analysis.away_avg_cards.toFixed(1) : '-'}</span>
+                    </div>
                   </div>
                 </div>
               </>
