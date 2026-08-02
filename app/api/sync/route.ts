@@ -380,7 +380,7 @@ export async function GET(request: Request) {
           }
         }
 
-        const aiAnalysisText = await generateAIAnalysis({
+        const aiResult = await generateAIAnalysis({
           homeTeam: homeTeam.name,
           awayTeam: awayTeam.name,
           topMarkets: allMarkets.slice(0, 3).map((m) => ({ label: m.label, probability: m.probability })),
@@ -394,6 +394,10 @@ export async function GET(request: Request) {
           homeInjuriesCount: homeInjuries.length,
           awayInjuriesCount: awayInjuries.length,
         });
+        const aiAnalysisText = aiResult.text;
+        if (aiResult.error) {
+          allApiErrors.push({ context: 'analiza AI (Gemini)', match: homeTeam.name + ' - ' + awayTeam.name, message: aiResult.error });
+        }
 
         await supabaseAdmin.from('match_analysis').upsert(
           {

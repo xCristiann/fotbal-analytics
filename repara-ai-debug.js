@@ -1,4 +1,35 @@
-// Genereaza o scurta analiza in limbaj natural, STRICT pe baza datelor
+#!/usr/bin/env node
+// Repara silent-fail-ul de la generateAIAnalysis: acum returneaza si
+// eroarea exacta (daca exista), ca sa apara in apiErrors din raspunsul
+// /api/sync, nu doar "nu s-a intamplat nimic".
+
+const fs = require('fs');
+const path = require('path');
+
+function writeFile(relativePath, content) {
+  const fullPath = path.join(__dirname, relativePath);
+  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+  fs.writeFileSync(fullPath, content, { encoding: 'utf8' });
+  console.log('Actualizat: ' + relativePath);
+}
+
+function readFile(relativePath) {
+  return fs.readFileSync(path.join(__dirname, relativePath), 'utf8');
+}
+
+function replaceInFile(relativePath, oldStr, newStr) {
+  const fullPath = path.join(__dirname, relativePath);
+  let content = fs.readFileSync(fullPath, 'utf8');
+  if (!content.includes(oldStr)) {
+    console.log('EROARE: nu am gasit textul de inlocuit in ' + relativePath);
+    process.exit(1);
+  }
+  content = content.split(oldStr).join(newStr);
+  fs.writeFileSync(fullPath, content, { encoding: 'utf8' });
+  console.log('Actualizat: ' + relativePath);
+}
+
+writeFile('lib/aiAnalysis.ts', `// Genereaza o scurta analiza in limbaj natural, STRICT pe baza datelor
 // statistice deja calculate. Foloseste Google Gemini (gratuit, fara
 // card). Returneaza si eroarea exacta, daca apare ceva - nu mai
 // esueaza silentios.
@@ -78,7 +109,7 @@ function buildUserPrompt(input: AIAnalysisInput): string {
   lines.push('Cartonase medii (ultimele 5): ' + input.homeTeam + ' ' + (input.homeAvgCards !== null ? input.homeAvgCards.toFixed(1) : 'necunoscut') + ', ' + input.awayTeam + ' ' + (input.awayAvgCards !== null ? input.awayAvgCards.toFixed(1) : 'necunoscut'));
   lines.push('Accidentari raportate: ' + input.homeTeam + ' ' + input.homeInjuriesCount + ', ' + input.awayTeam + ' ' + input.awayInjuriesCount);
 
-  return lines.join('\n');
+  return lines.join('\\n');
 }
 
 export async function generateAIAnalysis(input: AIAnalysisInput): Promise<AIAnalysisResult> {
@@ -120,3 +151,45 @@ export async function generateAIAnalysis(input: AIAnalysisInput): Promise<AIAnal
     return { text: null, error: 'Exceptie la apelul Gemini: ' + (err && err.message ? err.message : String(err)) };
   }
 }
+`);
+
+replaceInFile(
+  'app/api/sync/route.ts',
+  `        const aiAnalysisText = await generateAIAnalysis({
+          homeTeam: homeTeam.name,
+          awayTeam: awayTeam.name,
+          topMarkets: allMarkets.slice(0, 3).map((m) => ({ label: m.label, probability: m.probability })),
+          homeForm: homeRecentForm,
+          awayForm: awayRecentForm,
+          h2hMatches: h2hList,
+          homeAvgCorners: homeAvgCorners,
+          awayAvgCorners: awayAvgCorners,
+          homeAvgCards: homeAvgCards,
+          awayAvgCards: awayAvgCards,
+          homeInjuriesCount: homeInjuries.length,
+          awayInjuriesCount: awayInjuries.length,
+        });`,
+  `        const aiResult = await generateAIAnalysis({
+          homeTeam: homeTeam.name,
+          awayTeam: awayTeam.name,
+          topMarkets: allMarkets.slice(0, 3).map((m) => ({ label: m.label, probability: m.probability })),
+          homeForm: homeRecentForm,
+          awayForm: awayRecentForm,
+          h2hMatches: h2hList,
+          homeAvgCorners: homeAvgCorners,
+          awayAvgCorners: awayAvgCorners,
+          homeAvgCards: homeAvgCards,
+          awayAvgCards: awayAvgCards,
+          homeInjuriesCount: homeInjuries.length,
+          awayInjuriesCount: awayInjuries.length,
+        });
+        const aiAnalysisText = aiResult.text;
+        if (aiResult.error) {
+          allApiErrors.push({ context: 'analiza AI (Gemini)', match: homeTeam.name + ' - ' + awayTeam.name, message: aiResult.error });
+        }`
+);
+
+console.log('\\nGata! Acum ruleaza:');
+console.log('  git add .');
+console.log('  git commit -m "Repara silent-fail la analiza AI, adauga erori explicite"');
+console.log('  git push');
