@@ -50,6 +50,12 @@ function formatDate(date: Date): string {
   return date.toISOString().split('T')[0];
 }
 
+function subtractDays(dateStr: string, days: number): string {
+  const d = new Date(dateStr);
+  d.setUTCDate(d.getUTCDate() - days);
+  return d.toISOString().split('T')[0];
+}
+
 function extractTeamForm(stats: any, venue: 'home' | 'away'): TeamForm {
   const overallPlayed = stats?.fixtures?.played?.total || 1;
   const overallScored = stats?.goals?.for?.total?.total || 0;
@@ -242,6 +248,12 @@ export async function GET(request: Request) {
   const fullAnalysisDates = new Set(testDate ? targetDates : targetDates.slice(0, DAYS_WITH_FULL_ANALYSIS));
   const season = inferSeason(referenceDateForSeason);
 
+  // Interval restrans pentru listare: ultimele 90 de zile (destule
+  // meciuri terminate pentru medii de goluri pe liga) + fereastra
+  // noastra de zile tinta, in loc de tot sezonul (mult mai rapid).
+  const rangeFrom = subtractDays(referenceDateForSeason, 90);
+  const rangeTo = targetDates[targetDates.length - 1];
+
   let totalProcessed = 0;
   let totalWithAnalysis = 0;
   let fullAnalysisBudgetUsed = 0;
@@ -254,7 +266,7 @@ export async function GET(request: Request) {
       allApiErrors.push({ context: 'listare ligi', message: 'Oprit din listare dupa ' + LISTING_TIME_BUDGET_MS + 'ms - au ramas ligi neverificate in aceasta rulare.' });
       break;
     }
-    const result = await fetchSeasonFixtures(leagueId, season);
+    const result = await fetchSeasonFixtures(leagueId, season, rangeFrom, rangeTo);
     if (result.errors.length > 0) {
       allApiErrors.push(...result.errors);
     }

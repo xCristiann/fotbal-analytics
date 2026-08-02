@@ -52,8 +52,11 @@ export interface FixturesResult {
   errors: any[];
 }
 
-export async function fetchSeasonFixtures(leagueId: number, season: number): Promise<FixturesResult> {
-  const url = API_BASE + '/fixtures?league=' + leagueId + '&season=' + season;
+export async function fetchSeasonFixtures(leagueId: number, season: number, fromDate?: string, toDate?: string): Promise<FixturesResult> {
+  let url = API_BASE + '/fixtures?league=' + leagueId + '&season=' + season;
+  if (fromDate && toDate) {
+    url += '&from=' + fromDate + '&to=' + toDate;
+  }
   const { data, errors } = await apiCall(url);
   const fixtures = (data && data.response) ? data.response : [];
   return { fixtures: fixtures, errors: errors };
