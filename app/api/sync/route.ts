@@ -15,7 +15,15 @@ import { generateAIAnalysis } from '@/lib/aiAnalysis';
 
 export const maxDuration = 60;
 
-const TRACKED_LEAGUES = [283, 39, 140, 135, 78, 61, 2, 3, 848];
+// Liga 1 Romania, top 5 european, cupe europene, plus ligi
+// suplimentare - posibil acum datorita planului platit.
+// 283 Liga 1 Romania, 39 Premier League, 140 La Liga, 135 Serie A,
+// 78 Bundesliga, 61 Ligue 1, 2 Champions League, 3 Europa League,
+// 848 Conference League, 88 Eredivisie, 94 Primeira Liga (Portugalia),
+// 144 Jupiler Pro League (Belgia), 203 Super Lig (Turcia),
+// 71 Brasileirao (Brazilia), 253 MLS (SUA), 262 Liga MX (Mexic),
+// 40 Championship (Anglia, liga 2), 179 Scottish Premiership
+const TRACKED_LEAGUES = [283, 39, 140, 135, 78, 61, 2, 3, 848, 88, 94, 144, 203, 71, 253, 262, 40, 179];
 const DAYS_AHEAD = 7;
 const DAYS_WITH_FULL_ANALYSIS = 3;
 
