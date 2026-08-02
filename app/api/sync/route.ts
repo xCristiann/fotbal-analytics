@@ -11,6 +11,7 @@ import {
   inferSeason,
 } from '@/lib/apiFootball';
 import { calculateAllMarkets, calculateCornerMarkets, calculateCardMarkets, TeamForm, HeadToHeadStats, LeagueAverages } from '@/lib/poisson';
+import { generateAIAnalysis } from '@/lib/aiAnalysis';
 
 export const maxDuration = 60;
 
@@ -379,6 +380,21 @@ export async function GET(request: Request) {
           }
         }
 
+        const aiAnalysisText = await generateAIAnalysis({
+          homeTeam: homeTeam.name,
+          awayTeam: awayTeam.name,
+          topMarkets: allMarkets.slice(0, 3).map((m) => ({ label: m.label, probability: m.probability })),
+          homeForm: homeRecentForm,
+          awayForm: awayRecentForm,
+          h2hMatches: h2hList,
+          homeAvgCorners: homeAvgCorners,
+          awayAvgCorners: awayAvgCorners,
+          homeAvgCards: homeAvgCards,
+          awayAvgCards: awayAvgCards,
+          homeInjuriesCount: homeInjuries.length,
+          awayInjuriesCount: awayInjuries.length,
+        });
+
         await supabaseAdmin.from('match_analysis').upsert(
           {
             match_id: matchRow.id,
@@ -391,6 +407,7 @@ export async function GET(request: Request) {
             away_avg_cards: awayAvgCards,
             home_injuries: homeInjuries,
             away_injuries: awayInjuries,
+            ai_analysis: aiAnalysisText,
           },
           { onConflict: 'match_id' }
         );

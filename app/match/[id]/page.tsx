@@ -57,6 +57,7 @@ interface MatchAnalysis {
   away_avg_cards: number | null;
   home_injuries: InjuryEntry[] | null;
   away_injuries: InjuryEntry[] | null;
+  ai_analysis: string | null;
 }
 
 function probabilityBadgeClass(prob: number): string {
@@ -110,7 +111,7 @@ export default function MatchDetailPage() {
 
       const { data: analysisData } = await supabaseBrowser
         .from('match_analysis')
-        .select('home_recent_form, away_recent_form, h2h_matches, home_avg_corners, away_avg_corners, home_avg_cards, away_avg_cards, home_injuries, away_injuries')
+        .select('home_recent_form, away_recent_form, h2h_matches, home_avg_corners, away_avg_corners, home_avg_cards, away_avg_cards, home_injuries, away_injuries, ai_analysis')
         .eq('match_id', matchId)
         .maybeSingle();
 
@@ -150,6 +151,13 @@ export default function MatchDetailPage() {
               <p className="text-slate-500 text-sm mb-6">
                 Analiza completa nu a fost inca facuta pentru acest meci (se completeaza treptat, la urmatoarele sincronizari).
               </p>
+            )}
+
+            {analysis && analysis.ai_analysis && (
+              <div className="bg-indigo-950/40 border border-indigo-900 rounded-lg px-4 py-3 mb-8">
+                <p className="text-xs font-semibold text-indigo-300 mb-2 uppercase tracking-wide">Analiza AI</p>
+                <p className="text-sm text-slate-200 leading-relaxed">{analysis.ai_analysis}</p>
+              </div>
             )}
 
             {predictions.length > 0 && (
