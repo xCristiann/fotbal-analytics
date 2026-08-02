@@ -29,7 +29,12 @@ const DAYS_WITH_FULL_ANALYSIS = 3;
 
 // Configurabil din Vercel (Settings -> Environment Variables), fara
 // cod nou. Creste-l dupa ce treci pe plan platit la API-Football.
-const MAX_FIXTURES_FULL_ANALYSIS = Number(process.env.MAX_FIXTURES_FULL_ANALYSIS || '4');
+const MAX_FIXTURES_FULL_ANALYSIS = Number(process.env.MAX_FIXTURES_FULL_ANALYSIS || '10');
+
+// Plasa de siguranta REALA: ne oprim din analiza completa dupa acest
+// timp scurs (milisecunde), indiferent cate meciuri am facut. Lasam
+// marja de 15s fata de limita de 60s a Vercel, pentru raspunsul final.
+const SAFE_TIME_BUDGET_MS = Number(process.env.SAFE_TIME_BUDGET_MS || '45000');
 
 const RECENT_FORM_WEIGHT = 0.4;
 const RECENCY_WEIGHTS = [0.35, 0.25, 0.18, 0.13, 0.09];
@@ -209,6 +214,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Neautorizat' }, { status: 401 });
   }
 
+  const startTime = Date.now();
   const requestUrl = new URL(request.url);
   const testDate = requestUrl.searchParams.get('date');
 
@@ -287,6 +293,7 @@ export async function GET(request: Request) {
 
       if (!fullAnalysisDates.has(fixtureDateStr)) continue;
       if (fullAnalysisBudgetUsed >= MAX_FIXTURES_FULL_ANALYSIS) continue;
+      if (Date.now() - startTime > SAFE_TIME_BUDGET_MS) continue;
 
       fullAnalysisBudgetUsed++;
 
@@ -446,6 +453,8 @@ export async function GET(request: Request) {
     success: true,
     season: season,
     maxFixturesFullAnalysis: MAX_FIXTURES_FULL_ANALYSIS,
+    elapsedMs: Date.now() - startTime,
+    stoppedByTimeBudget: (Date.now() - startTime) > SAFE_TIME_BUDGET_MS,
     processed: totalProcessed,
     withAnalysis: totalWithAnalysis,
     fullAnalysisBudgetUsed: fullAnalysisBudgetUsed,

@@ -6,7 +6,7 @@ const API_BASE = 'https://v3.football.api-sports.io';
 // Configurabil din Vercel (Environment Variables), fara sa mai fie
 // nevoie de alt cod. Dupa ce treci pe plan platit, poti scadea
 // API_REQUEST_DELAY_MS (limita per-minut e mult mai mare).
-const REQUEST_DELAY_MS = Number(process.env.API_REQUEST_DELAY_MS || '700');
+const REQUEST_DELAY_MS = Number(process.env.API_REQUEST_DELAY_MS || '200');
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
