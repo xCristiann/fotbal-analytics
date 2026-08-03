@@ -1,4 +1,20 @@
-import { NextResponse } from 'next/server';
+#!/usr/bin/env node
+// FIX ARHITECTURAL: desparte complet faza de LISTARE (toate ligile,
+// rapida) de faza de ANALIZA COMPLETA (limitata de timp/buget).
+// Inainte, cele doua erau amestecate liga-cu-liga, ceea ce insemna ca
+// analiza completa a primei ligi bloca listarea celorlalte.
+
+const fs = require('fs');
+const path = require('path');
+
+function writeFile(relativePath, content) {
+  const fullPath = path.join(__dirname, relativePath);
+  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+  fs.writeFileSync(fullPath, content, { encoding: 'utf8' });
+  console.log('Actualizat: ' + relativePath);
+}
+
+writeFile('app/api/sync/route.ts', `import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import {
   fetchSeasonFixtures,
@@ -450,3 +466,9 @@ export async function GET(request: Request) {
     apiErrors: allApiErrors.slice(0, 20),
   });
 }
+`);
+
+console.log('\\nGata! Acum ruleaza:');
+console.log('  git add .');
+console.log('  git commit -m "Fix arhitectural: desparte listarea de analiza completa"');
+console.log('  git push');
