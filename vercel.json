@@ -1,8 +1,16 @@
 {
   "crons": [
     {
-      "path": "/api/sync",
+      "path": "/api/sync?batch=0",
       "schedule": "0 6 * * *"
+    },
+    {
+      "path": "/api/sync?batch=1",
+      "schedule": "20 6 * * *"
+    },
+    {
+      "path": "/api/sync?batch=2",
+      "schedule": "40 6 * * *"
     }
   ]
 }

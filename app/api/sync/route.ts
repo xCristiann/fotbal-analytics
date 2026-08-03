@@ -228,6 +228,17 @@ export async function GET(request: Request) {
   const startTime = Date.now();
   const requestUrl = new URL(request.url);
   const testDate = requestUrl.searchParams.get('date');
+  const batchParam = requestUrl.searchParams.get('batch');
+  const batchIndex = batchParam !== null ? parseInt(batchParam, 10) : null;
+
+  // Daca vine cu ?batch=N, procesam DOAR acel lot de ligi (6 ligi per
+  // lot). Fara ?batch, procesam toate ligile intr-un singur apel (util
+  // pentru teste manuale pe zile cu putine meciuri, dar poate da
+  // timeout daca sunt multe ligi/meciuri - de-aia exista modul pe loturi).
+  const BATCH_SIZE = 6;
+  const leaguesToProcess = batchIndex !== null
+    ? TRACKED_LEAGUES.slice(batchIndex * BATCH_SIZE, (batchIndex + 1) * BATCH_SIZE)
+    : TRACKED_LEAGUES;
 
   const targetDates: string[] = [];
   let referenceDateForSeason: string;
@@ -261,7 +272,7 @@ export async function GET(request: Request) {
   const matchesPerDate: Record<string, number> = {};
   targetDates.forEach((d) => { matchesPerDate[d] = 0; });
 
-  for (const leagueId of TRACKED_LEAGUES) {
+  for (const leagueId of leaguesToProcess) {
     if (Date.now() - startTime > LISTING_TIME_BUDGET_MS) {
       allApiErrors.push({ context: 'listare ligi', message: 'Oprit din listare dupa ' + LISTING_TIME_BUDGET_MS + 'ms - au ramas ligi neverificate in aceasta rulare.' });
       break;
@@ -473,6 +484,8 @@ export async function GET(request: Request) {
   return NextResponse.json({
     success: true,
     season: season,
+    batch: batchIndex,
+    leaguesProcessedThisBatch: leaguesToProcess,
     maxFixturesFullAnalysis: MAX_FIXTURES_FULL_ANALYSIS,
     listingTimeBudgetMs: LISTING_TIME_BUDGET_MS,
     safeTimeBudgetMs: SAFE_TIME_BUDGET_MS,
