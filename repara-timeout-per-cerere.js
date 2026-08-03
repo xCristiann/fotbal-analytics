@@ -1,4 +1,21 @@
-// Client minimal pentru API-Football (api-sports.io / api-football.com)
+#!/usr/bin/env node
+// FIX FINAL: fiecare cerere individuala catre API-Football primeste un
+// termen limita strict (10s). Daca API-Football nu raspunde la timp,
+// cererea aia specifica e anulata si continuam - nu mai poate bloca
+// TOT procesul o singura cerere agatata. Plus bugete de timp mai
+// conservatoare, cu marja mai mare fata de limita de 60s a Vercel.
+
+const fs = require('fs');
+const path = require('path');
+
+function writeFile(relativePath, content) {
+  const fullPath = path.join(__dirname, relativePath);
+  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+  fs.writeFileSync(fullPath, content, { encoding: 'utf8' });
+  console.log('Actualizat: ' + relativePath);
+}
+
+writeFile('lib/apiFootball.ts', `// Client minimal pentru API-Football (api-sports.io / api-football.com)
 // Documentatie: https://www.api-football.com/documentation-v3
 
 const API_BASE = 'https://v3.football.api-sports.io';
@@ -118,3 +135,27 @@ export async function fetchInjuries(teamId: number, season: number): Promise<{ i
   const injuries = (data && data.response) ? data.response : [];
   return { injuries: injuries, errors: errors };
 }
+`);
+
+function replaceInFile(relativePath, oldStr, newStr) {
+  const fullPath = path.join(__dirname, relativePath);
+  let content = fs.readFileSync(fullPath, 'utf8');
+  if (!content.includes(oldStr)) {
+    console.log('EROARE: nu am gasit textul de inlocuit in ' + relativePath);
+    process.exit(1);
+  }
+  content = content.split(oldStr).join(newStr);
+  fs.writeFileSync(fullPath, content, { encoding: 'utf8' });
+  console.log('Actualizat: ' + relativePath);
+}
+
+replaceInFile(
+  'app/api/sync/route.ts',
+  "const MAX_FIXTURES_FULL_ANALYSIS = Number(process.env.MAX_FIXTURES_FULL_ANALYSIS || '10');\nconst SAFE_TIME_BUDGET_MS = Number(process.env.SAFE_TIME_BUDGET_MS || '45000');\nconst LISTING_TIME_BUDGET_MS = Number(process.env.LISTING_TIME_BUDGET_MS || '20000');",
+  "const MAX_FIXTURES_FULL_ANALYSIS = Number(process.env.MAX_FIXTURES_FULL_ANALYSIS || '8');\nconst SAFE_TIME_BUDGET_MS = Number(process.env.SAFE_TIME_BUDGET_MS || '38000');\nconst LISTING_TIME_BUDGET_MS = Number(process.env.LISTING_TIME_BUDGET_MS || '15000');"
+);
+
+console.log('\\nGata! Acum ruleaza:');
+console.log('  git add .');
+console.log('  git commit -m "Adauga timeout per cerere individuala, previne blocarea completa"');
+console.log('  git push');
