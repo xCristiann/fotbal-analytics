@@ -269,6 +269,7 @@ export async function GET(request: Request) {
   let totalWithAnalysis = 0;
   let fullAnalysisBudgetUsed = 0;
   const allApiErrors: any[] = [];
+  const leagueTimings: any[] = [];
   const matchesPerDate: Record<string, number> = {};
   targetDates.forEach((d) => { matchesPerDate[d] = 0; });
 
@@ -277,7 +278,9 @@ export async function GET(request: Request) {
       allApiErrors.push({ context: 'listare ligi', message: 'Oprit din listare dupa ' + LISTING_TIME_BUDGET_MS + 'ms - au ramas ligi neverificate in aceasta rulare.' });
       break;
     }
+    const leagueCallStart = Date.now();
     const result = await fetchSeasonFixtures(leagueId, season, rangeFrom, rangeTo);
+    leagueTimings.push({ leagueId: leagueId, ms: Date.now() - leagueCallStart, fixturesGasite: result.fixtures.length });
     if (result.errors.length > 0) {
       allApiErrors.push(...result.errors);
     }
@@ -486,6 +489,7 @@ export async function GET(request: Request) {
     season: season,
     batch: batchIndex,
     leaguesProcessedThisBatch: leaguesToProcess,
+    leagueTimings: leagueTimings,
     maxFixturesFullAnalysis: MAX_FIXTURES_FULL_ANALYSIS,
     listingTimeBudgetMs: LISTING_TIME_BUDGET_MS,
     safeTimeBudgetMs: SAFE_TIME_BUDGET_MS,
