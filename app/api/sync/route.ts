@@ -13,15 +13,18 @@ import {
 import { calculateAllMarkets, calculateCornerMarkets, calculateCardMarkets, calculateShotsMarkets, TeamForm, HeadToHeadStats, LeagueAverages } from '@/lib/poisson';
 import { generateAIAnalysis } from '@/lib/aiAnalysis';
 
-export const maxDuration = 60;
+// Necesita Fluid Compute activat in Vercel (Settings -> Functions).
+// Fara Fluid Compute, Vercel oricum taie la 60s indiferent ce scriem
+// aici - Fluid Compute e conditia reala, nu doar aceasta valoare.
+export const maxDuration = 300;
 
 const TRACKED_LEAGUES = [283, 39, 140, 135, 78, 61, 2, 3, 848, 88, 94, 144, 203, 71, 253, 262, 40, 179];
 
 const DAYS_AHEAD = 7;
 const DAYS_WITH_FULL_ANALYSIS = 3;
-const MAX_FIXTURES_FULL_ANALYSIS = Number(process.env.MAX_FIXTURES_FULL_ANALYSIS || '8');
-const SAFE_TIME_BUDGET_MS = Number(process.env.SAFE_TIME_BUDGET_MS || '38000');
-const LISTING_TIME_BUDGET_MS = Number(process.env.LISTING_TIME_BUDGET_MS || '15000');
+const MAX_FIXTURES_FULL_ANALYSIS = Number(process.env.MAX_FIXTURES_FULL_ANALYSIS || '60');
+const SAFE_TIME_BUDGET_MS = Number(process.env.SAFE_TIME_BUDGET_MS || '260000');
+const LISTING_TIME_BUDGET_MS = Number(process.env.LISTING_TIME_BUDGET_MS || '60000');
 
 const RECENT_FORM_WEIGHT = 0.4;
 const RECENCY_WEIGHTS = [0.35, 0.25, 0.18, 0.13, 0.09];
