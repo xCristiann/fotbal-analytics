@@ -189,6 +189,7 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const testDate = requestUrl.searchParams.get('date');
   const batchParam = requestUrl.searchParams.get('batch');
+  const forceReanalysis = requestUrl.searchParams.get('force') === 'true';
   const batchIndex = batchParam !== null ? parseInt(batchParam, 10) : null;
   const BATCH_SIZE = 3;
   const leaguesToProcess = batchIndex !== null
@@ -292,7 +293,9 @@ export async function GET(request: Request) {
     const { data: existingPredictions } = await supabaseAdmin.from('predictions').select('match_id').in('match_id', idsToCheck);
     alreadyAnalyzedIds = new Set((existingPredictions || []).map((p: any) => p.match_id));
   }
-  const candidatesNeedingAnalysis = eligibleForAnalysis.filter((c) => !alreadyAnalyzedIds.has(c.matchRow.id));
+  const candidatesNeedingAnalysis = forceReanalysis
+    ? eligibleForAnalysis
+    : eligibleForAnalysis.filter((c) => !alreadyAnalyzedIds.has(c.matchRow.id));
 
   // ================== FAZA 2: ANALIZA COMPLETA (limitata de timp/buget) ==================
   for (const candidate of candidatesNeedingAnalysis) {
