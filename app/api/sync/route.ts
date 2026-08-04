@@ -182,7 +182,7 @@ export async function GET(request: Request) {
   const testDate = requestUrl.searchParams.get('date');
   const batchParam = requestUrl.searchParams.get('batch');
   const batchIndex = batchParam !== null ? parseInt(batchParam, 10) : null;
-  const BATCH_SIZE = 6;
+  const BATCH_SIZE = 3;
   const leaguesToProcess = batchIndex !== null
     ? TRACKED_LEAGUES.slice(batchIndex * BATCH_SIZE, (batchIndex + 1) * BATCH_SIZE)
     : TRACKED_LEAGUES;

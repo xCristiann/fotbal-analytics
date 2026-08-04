@@ -1,16 +1,10 @@
 {
   "crons": [
-    {
-      "path": "/api/sync?batch=0",
-      "schedule": "0 6 * * *"
-    },
-    {
-      "path": "/api/sync?batch=1",
-      "schedule": "20 6 * * *"
-    },
-    {
-      "path": "/api/sync?batch=2",
-      "schedule": "40 6 * * *"
-    }
+    { "path": "/api/sync?batch=0", "schedule": "0 6 * * *" },
+    { "path": "/api/sync?batch=1", "schedule": "10 6 * * *" },
+    { "path": "/api/sync?batch=2", "schedule": "20 6 * * *" },
+    { "path": "/api/sync?batch=3", "schedule": "30 6 * * *" },
+    { "path": "/api/sync?batch=4", "schedule": "40 6 * * *" },
+    { "path": "/api/sync?batch=5", "schedule": "50 6 * * *" }
   ]
 }

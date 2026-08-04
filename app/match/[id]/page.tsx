@@ -261,22 +261,22 @@ export default function MatchDetailPage() {
                     <p className="text-xs text-slate-500 mb-2">{match.home_team_name}</p>
                     <div className="flex justify-between text-sm mb-1">
                       <span className="text-slate-400">Cornere</span>
-                      <span className="font-semibold">{analysis.home_avg_corners !== null ? analysis.home_avg_corners.toFixed(1) : '-'}</span>
+                      <span className="font-semibold">{analysis.home_avg_corners !== null ? analysis.home_avg_corners.toFixed(1) : <span className="text-xs text-slate-600">date indisponibile</span>}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-400">Cartonase</span>
-                      <span className="font-semibold">{analysis.home_avg_cards !== null ? analysis.home_avg_cards.toFixed(1) : '-'}</span>
+                      <span className="font-semibold">{analysis.home_avg_cards !== null ? analysis.home_avg_cards.toFixed(1) : <span className="text-xs text-slate-600">date indisponibile</span>}</span>
                     </div>
                   </div>
                   <div className="bg-slate-900 border border-slate-800 rounded-lg px-4 py-3">
                     <p className="text-xs text-slate-500 mb-2">{match.away_team_name}</p>
                     <div className="flex justify-between text-sm mb-1">
                       <span className="text-slate-400">Cornere</span>
-                      <span className="font-semibold">{analysis.away_avg_corners !== null ? analysis.away_avg_corners.toFixed(1) : '-'}</span>
+                      <span className="font-semibold">{analysis.away_avg_corners !== null ? analysis.away_avg_corners.toFixed(1) : <span className="text-xs text-slate-600">date indisponibile</span>}</span>
                     </div>
                     <div className="flex justify-between text-sm">
                       <span className="text-slate-400">Cartonase</span>
-                      <span className="font-semibold">{analysis.away_avg_cards !== null ? analysis.away_avg_cards.toFixed(1) : '-'}</span>
+                      <span className="font-semibold">{analysis.away_avg_cards !== null ? analysis.away_avg_cards.toFixed(1) : <span className="text-xs text-slate-600">date indisponibile</span>}</span>
                     </div>
                   </div>
                 </div>
