@@ -1,4 +1,31 @@
-// Model de probabilitate: Poisson + Dixon-Coles pentru scoruri mici,
+#!/usr/bin/env node
+// Adauga piete noi, orientate spre ce ofera casele de pariuri reale:
+// cornere per echipa, ambele echipe peste X cornere, combo GG+Peste/Sub
+// 2.5, total suturi + suturi per echipa, cartonase per echipa.
+
+const fs = require('fs');
+const path = require('path');
+
+function writeFile(relativePath, content) {
+  const fullPath = path.join(__dirname, relativePath);
+  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+  fs.writeFileSync(fullPath, content, { encoding: 'utf8' });
+  console.log('Actualizat: ' + relativePath);
+}
+
+function replaceInFile(relativePath, oldStr, newStr) {
+  const fullPath = path.join(__dirname, relativePath);
+  let content = fs.readFileSync(fullPath, 'utf8');
+  if (!content.includes(oldStr)) {
+    console.log('EROARE: nu am gasit textul de inlocuit in ' + relativePath);
+    process.exit(1);
+  }
+  content = content.split(oldStr).join(newStr);
+  fs.writeFileSync(fullPath, content, { encoding: 'utf8' });
+  console.log('Actualizat: ' + relativePath);
+}
+
+writeFile('lib/poisson.ts', `// Model de probabilitate: Poisson + Dixon-Coles pentru scoruri mici,
 // medii de goluri specifice per liga, piete de cornere/cartonase/suturi
 // (total si per echipa), combo GG+Peste/Sub 2.5, integrare H2H.
 
@@ -280,3 +307,90 @@ export function calculateShotsMarkets(homeAvgShots: number | null, awayAvgShots:
     ...calculateTeamOverUnderMarkets(awayAvgShots, SHOTS_TEAM_THRESHOLDS, 'SHOTS', 'suturi', 'AWAY', 'Oaspetii'),
   ];
 }
+`);
+
+// Adaugam extragerea de suturi (din acelasi raspuns unde luam deja
+// cornere/cartonase - fara cerere API in plus) si il calculam.
+replaceInFile(
+  'app/api/sync/route.ts',
+  `function computeAverage(values: (number | null)[]): number | null {`,
+  `function extractShots(statsResponse: any[], teamId: number): number | null {
+  const teamBlock = statsResponse.find((b: any) => b?.team?.id === teamId);
+  if (!teamBlock) return null;
+  const shotsStat = (teamBlock.statistics || []).find((s: any) => s.type === 'Total Shots');
+  if (!shotsStat || shotsStat.value === null || shotsStat.value === undefined) return null;
+  return Number(shotsStat.value);
+}
+
+function computeAverage(values: (number | null)[]): number | null {`
+);
+
+replaceInFile(
+  'app/api/sync/route.ts',
+  `import { calculateAllMarkets, calculateCornerMarkets, calculateCardMarkets, TeamForm, HeadToHeadStats, LeagueAverages } from '@/lib/poisson';`,
+  `import { calculateAllMarkets, calculateCornerMarkets, calculateCardMarkets, calculateShotsMarkets, TeamForm, HeadToHeadStats, LeagueAverages } from '@/lib/poisson';`
+);
+
+replaceInFile(
+  'app/api/sync/route.ts',
+  `      const homeCornersValues: (number | null)[] = [];
+      const homeCardsValues: (number | null)[] = [];
+      for (const f of homeRecentFixtures) {
+        const stats = await fetchFixtureStatistics(f.fixture.id);
+        homeCornersValues.push(extractCorners(stats, homeTeam.id));
+        homeCardsValues.push(extractCards(stats, homeTeam.id));
+      }
+      const awayCornersValues: (number | null)[] = [];
+      const awayCardsValues: (number | null)[] = [];
+      for (const f of awayRecentFixtures) {
+        const stats = await fetchFixtureStatistics(f.fixture.id);
+        awayCornersValues.push(extractCorners(stats, awayTeam.id));
+        awayCardsValues.push(extractCards(stats, awayTeam.id));
+      }
+      const homeAvgCorners = computeAverage(homeCornersValues);
+      const awayAvgCorners = computeAverage(awayCornersValues);
+      const homeAvgCards = computeAverage(homeCardsValues);
+      const awayAvgCards = computeAverage(awayCardsValues);`,
+  `      const homeCornersValues: (number | null)[] = [];
+      const homeCardsValues: (number | null)[] = [];
+      const homeShotsValues: (number | null)[] = [];
+      for (const f of homeRecentFixtures) {
+        const stats = await fetchFixtureStatistics(f.fixture.id);
+        homeCornersValues.push(extractCorners(stats, homeTeam.id));
+        homeCardsValues.push(extractCards(stats, homeTeam.id));
+        homeShotsValues.push(extractShots(stats, homeTeam.id));
+      }
+      const awayCornersValues: (number | null)[] = [];
+      const awayCardsValues: (number | null)[] = [];
+      const awayShotsValues: (number | null)[] = [];
+      for (const f of awayRecentFixtures) {
+        const stats = await fetchFixtureStatistics(f.fixture.id);
+        awayCornersValues.push(extractCorners(stats, awayTeam.id));
+        awayCardsValues.push(extractCards(stats, awayTeam.id));
+        awayShotsValues.push(extractShots(stats, awayTeam.id));
+      }
+      const homeAvgCorners = computeAverage(homeCornersValues);
+      const awayAvgCorners = computeAverage(awayCornersValues);
+      const homeAvgCards = computeAverage(homeCardsValues);
+      const awayAvgCards = computeAverage(awayCardsValues);
+      const homeAvgShots = computeAverage(homeShotsValues);
+      const awayAvgShots = computeAverage(awayShotsValues);`
+);
+
+replaceInFile(
+  'app/api/sync/route.ts',
+  `      const goalMarkets = calculateAllMarkets(homeForm, awayForm, h2hStats, leagueAvg);
+      const cornerMarkets = calculateCornerMarkets(homeAvgCorners, awayAvgCorners);
+      const cardMarkets = calculateCardMarkets(homeAvgCards, awayAvgCards);
+      const allMarkets = goalMarkets.concat(cornerMarkets, cardMarkets).sort((a, b) => b.probability - a.probability);`,
+  `      const goalMarkets = calculateAllMarkets(homeForm, awayForm, h2hStats, leagueAvg);
+      const cornerMarkets = calculateCornerMarkets(homeAvgCorners, awayAvgCorners);
+      const cardMarkets = calculateCardMarkets(homeAvgCards, awayAvgCards);
+      const shotsMarkets = calculateShotsMarkets(homeAvgShots, awayAvgShots);
+      const allMarkets = goalMarkets.concat(cornerMarkets, cardMarkets, shotsMarkets).sort((a, b) => b.probability - a.probability);`
+);
+
+console.log('\\nGata! Acum ruleaza:');
+console.log('  git add .');
+console.log('  git commit -m "Adauga piete avansate: cornere/cartonase per echipa, ambele echipe peste X, GG+Peste2.5, suturi"');
+console.log('  git push');

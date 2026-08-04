@@ -10,7 +10,7 @@ import {
   fetchInjuries,
   inferSeason,
 } from '@/lib/apiFootball';
-import { calculateAllMarkets, calculateCornerMarkets, calculateCardMarkets, TeamForm, HeadToHeadStats, LeagueAverages } from '@/lib/poisson';
+import { calculateAllMarkets, calculateCornerMarkets, calculateCardMarkets, calculateShotsMarkets, TeamForm, HeadToHeadStats, LeagueAverages } from '@/lib/poisson';
 import { generateAIAnalysis } from '@/lib/aiAnalysis';
 
 export const maxDuration = 60;
@@ -159,6 +159,14 @@ function extractCards(statsResponse: any[], teamId: number): number | null {
   const red = redStat && redStat.value !== null && redStat.value !== undefined ? Number(redStat.value) : 0;
   if (!yellowStat && !redStat) return null;
   return yellow + red;
+}
+
+function extractShots(statsResponse: any[], teamId: number): number | null {
+  const teamBlock = statsResponse.find((b: any) => b?.team?.id === teamId);
+  if (!teamBlock) return null;
+  const shotsStat = (teamBlock.statistics || []).find((s: any) => s.type === 'Total Shots');
+  if (!shotsStat || shotsStat.value === null || shotsStat.value === undefined) return null;
+  return Number(shotsStat.value);
 }
 
 function computeAverage(values: (number | null)[]): number | null {
@@ -334,22 +342,28 @@ export async function GET(request: Request) {
 
       const homeCornersValues: (number | null)[] = [];
       const homeCardsValues: (number | null)[] = [];
+      const homeShotsValues: (number | null)[] = [];
       for (const f of homeRecentFixtures) {
         const stats = await fetchFixtureStatistics(f.fixture.id);
         homeCornersValues.push(extractCorners(stats, homeTeam.id));
         homeCardsValues.push(extractCards(stats, homeTeam.id));
+        homeShotsValues.push(extractShots(stats, homeTeam.id));
       }
       const awayCornersValues: (number | null)[] = [];
       const awayCardsValues: (number | null)[] = [];
+      const awayShotsValues: (number | null)[] = [];
       for (const f of awayRecentFixtures) {
         const stats = await fetchFixtureStatistics(f.fixture.id);
         awayCornersValues.push(extractCorners(stats, awayTeam.id));
         awayCardsValues.push(extractCards(stats, awayTeam.id));
+        awayShotsValues.push(extractShots(stats, awayTeam.id));
       }
       const homeAvgCorners = computeAverage(homeCornersValues);
       const awayAvgCorners = computeAverage(awayCornersValues);
       const homeAvgCards = computeAverage(homeCardsValues);
       const awayAvgCards = computeAverage(awayCardsValues);
+      const homeAvgShots = computeAverage(homeShotsValues);
+      const awayAvgShots = computeAverage(awayShotsValues);
 
       const homeInjuriesResult = await fetchInjuries(homeTeam.id, fixtureSeason);
       if (homeInjuriesResult.errors.length > 0) allApiErrors.push(...homeInjuriesResult.errors);
@@ -366,7 +380,8 @@ export async function GET(request: Request) {
       const goalMarkets = calculateAllMarkets(homeForm, awayForm, h2hStats, leagueAvg);
       const cornerMarkets = calculateCornerMarkets(homeAvgCorners, awayAvgCorners);
       const cardMarkets = calculateCardMarkets(homeAvgCards, awayAvgCards);
-      const allMarkets = goalMarkets.concat(cornerMarkets, cardMarkets).sort((a, b) => b.probability - a.probability);
+      const shotsMarkets = calculateShotsMarkets(homeAvgShots, awayAvgShots);
+      const allMarkets = goalMarkets.concat(cornerMarkets, cardMarkets, shotsMarkets).sort((a, b) => b.probability - a.probability);
 
       await supabaseAdmin.from('predictions').delete().eq('match_id', matchRow.id);
       const predictionRows = allMarkets.map((m) => ({
