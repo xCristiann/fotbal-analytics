@@ -1,4 +1,20 @@
-import { NextResponse } from 'next/server';
+#!/usr/bin/env node
+// FIX: inainte de Faza 2 (analiza completa), verificam ce meciuri au
+// deja predictii salvate si le sarim - altfel fiecare rulare repeta
+// analiza pe aceleasi primele N meciuri din lista, fara sa avanseze
+// niciodata la restul.
+
+const fs = require('fs');
+const path = require('path');
+
+function writeFile(relativePath, content) {
+  const fullPath = path.join(__dirname, relativePath);
+  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+  fs.writeFileSync(fullPath, content, { encoding: 'utf8' });
+  console.log('Actualizat: ' + relativePath);
+}
+
+writeFile('app/api/sync/route.ts', `import { NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import {
   fetchSeasonFixtures,
@@ -455,3 +471,9 @@ export async function GET(request: Request) {
     apiErrors: allApiErrors.slice(0, 20),
   });
 }
+`);
+
+console.log('\\nGata! Acum ruleaza:');
+console.log('  git add .');
+console.log('  git commit -m "Fix: sare meciurile deja analizate, avanseaza la meciuri noi"');
+console.log('  git push');
