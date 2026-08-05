@@ -418,20 +418,26 @@ export async function GET(request: Request) {
         }
       }
 
-      const aiResult = await generateAIAnalysis({
-        homeTeam: homeTeam.name,
-        awayTeam: awayTeam.name,
-        topMarkets: allMarkets.slice(0, 3).map((m) => ({ label: m.label, probability: m.probability })),
-        homeForm: homeRecentForm,
-        awayForm: awayRecentForm,
-        h2hMatches: h2hList,
-        homeAvgCorners: homeAvgCorners,
-        awayAvgCorners: awayAvgCorners,
-        homeAvgCards: homeAvgCards,
-        awayAvgCards: awayAvgCards,
-        homeInjuriesCount: homeInjuries.length,
-        awayInjuriesCount: awayInjuries.length,
-      });
+      // Comutator: seteaza DISABLE_AI_ANALYSIS=true in Vercel Environment
+      // Variables ca sa oprești analiza AI, fara sa mai fie nevoie de cod
+      // nou. Sterge variabila (sau pune false) ca sa o repornesti.
+      const aiDisabled = process.env.DISABLE_AI_ANALYSIS === 'true';
+      const aiResult = aiDisabled
+        ? { text: null, error: null }
+        : await generateAIAnalysis({
+            homeTeam: homeTeam.name,
+            awayTeam: awayTeam.name,
+            topMarkets: allMarkets.slice(0, 3).map((m) => ({ label: m.label, probability: m.probability })),
+            homeForm: homeRecentForm,
+            awayForm: awayRecentForm,
+            h2hMatches: h2hList,
+            homeAvgCorners: homeAvgCorners,
+            awayAvgCorners: awayAvgCorners,
+            homeAvgCards: homeAvgCards,
+            awayAvgCards: awayAvgCards,
+            homeInjuriesCount: homeInjuries.length,
+            awayInjuriesCount: awayInjuries.length,
+          });
       if (aiResult.error) {
         allApiErrors.push({ context: 'analiza AI (Gemini)', match: homeTeam.name + ' - ' + awayTeam.name, message: aiResult.error });
       }
