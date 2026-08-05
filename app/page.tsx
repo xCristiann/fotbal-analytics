@@ -87,7 +87,10 @@ export default function HomePage() {
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 px-4 py-8">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-2xl font-semibold mb-6">Analiza meciuri</h1>
+        <div className="flex items-center justify-between mb-6">
+          <h1 className="text-2xl font-semibold">Analiza meciuri</h1>
+          <Link href="/tickets" className="text-sm text-emerald-400 hover:text-emerald-300">Bilete recomandate</Link>
+        </div>
 
         <div className="flex flex-col sm:flex-row gap-3 mb-6">
           <input
