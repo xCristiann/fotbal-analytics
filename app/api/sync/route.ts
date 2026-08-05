@@ -301,9 +301,16 @@ export async function GET(request: Request) {
     : eligibleForAnalysis.filter((c) => !alreadyAnalyzedIds.has(c.matchRow.id));
 
   // ================== FAZA 2: ANALIZA COMPLETA (limitata de timp/buget) ==================
+  let phase2StopReason = 'a procesat tot ce era eligibil';
   for (const candidate of candidatesNeedingAnalysis) {
-    if (fullAnalysisBudgetUsed >= MAX_FIXTURES_FULL_ANALYSIS) break;
-    if (Date.now() - startTime > SAFE_TIME_BUDGET_MS) break;
+    if (fullAnalysisBudgetUsed >= MAX_FIXTURES_FULL_ANALYSIS) {
+      phase2StopReason = 'buget de meciuri epuizat (MAX_FIXTURES_FULL_ANALYSIS=' + MAX_FIXTURES_FULL_ANALYSIS + ')';
+      break;
+    }
+    if (Date.now() - startTime > SAFE_TIME_BUDGET_MS) {
+      phase2StopReason = 'timp epuizat (SAFE_TIME_BUDGET_MS=' + SAFE_TIME_BUDGET_MS + 'ms, scurs=' + (Date.now() - startTime) + 'ms)';
+      break;
+    }
 
     fullAnalysisBudgetUsed++;
 
@@ -472,6 +479,7 @@ export async function GET(request: Request) {
     candidatesEligible: eligibleForAnalysis.length,
     candidatesAlreadyAnalyzed: alreadyAnalyzedIds.size,
     candidatesRemainingAfterThisRun: candidatesNeedingAnalysis.length - fullAnalysisBudgetUsed,
+    phase2StopReason: phase2StopReason,
     days: summary,
     apiErrors: allApiErrors.slice(0, 20),
   });

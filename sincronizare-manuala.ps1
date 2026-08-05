@@ -6,8 +6,7 @@
 #       -> ruleaza normal (avanseaza la meciuri noi)
 #
 #   .\sincronizare-manuala.ps1 -Force
-#       -> reface si meciurile deja analizate (foloseste dupa ce
-#          schimbi algoritmul, ca sa aduci totul la zi)
+#       -> reface si meciurile deja analizate
 #
 #   .\sincronizare-manuala.ps1 -Data "2023-04-15"
 #       -> mod de test, pe o singura data istorica
@@ -56,15 +55,21 @@ for ($batch = 0; $batch -le 5; $batch++) {
     Write-Host "Rulez: $url"
 
     try {
-        $result = Invoke-RestMethod -Uri $url -Headers $Headers -TimeoutSec 90
+        # Timeout marit la 280s, ca sa incapa serverul care acum poate
+        # rula pana la 300s (Fluid Compute activat)
+        $result = Invoke-RestMethod -Uri $url -Headers $Headers -TimeoutSec 280
 
         $processed = $result.processed
         $withAnalysis = $result.withAnalysis
         $elapsed = $result.elapsedMs
+        $eligible = $result.candidatesEligible
+        $alreadyDone = $result.candidatesAlreadyAnalyzed
         $remaining = $result.candidatesRemainingAfterThisRun
         $errorCount = $result.apiErrors.Count
 
-        Write-Host ("  Meciuri gasite: {0} | Analizate complet: {1} | Durata: {2}ms | Ramase: {3} | Erori: {4}" -f $processed, $withAnalysis, $elapsed, $remaining, $errorCount)
+        Write-Host ("  Gasite: {0} | Eligibile (in primele 3 zile): {1} | Deja facute inainte: {2} | Analizate ACUM: {3}" -f $processed, $eligible, $alreadyDone, $withAnalysis)
+        Write-Host ("  Durata: {0}ms | Ramase dupa aceasta rulare: {1} | Erori: {2}" -f $elapsed, $remaining, $errorCount)
+        Write-Host ("  Motiv oprire: {0}" -f $result.phase2StopReason) -ForegroundColor Magenta
 
         if ($errorCount -gt 0) {
             Write-Host "  Erori intalnite:" -ForegroundColor Red
