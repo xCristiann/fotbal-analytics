@@ -1,4 +1,19 @@
-'use client';
+#!/usr/bin/env node
+// Pe pagina principala, in loc de un singur pronostic per meci, arata
+// minim 2: cel mai bun per total, plus garantat unul de cornere (daca
+// exista date de cornere pentru acel meci).
+
+const fs = require('fs');
+const path = require('path');
+
+function writeFile(relativePath, content) {
+  const fullPath = path.join(__dirname, relativePath);
+  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+  fs.writeFileSync(fullPath, content, { encoding: 'utf8' });
+  console.log('Actualizat: ' + relativePath);
+}
+
+writeFile('app/page.tsx', `'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -168,3 +183,9 @@ export default function HomePage() {
     </main>
   );
 }
+`);
+
+console.log('\nGata! Acum ruleaza:');
+console.log('  git add .');
+console.log('  git commit -m "Arata minim 2 pronosticuri per meci, garantat unul de cornere"');
+console.log('  git push');
