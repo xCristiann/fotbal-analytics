@@ -1,4 +1,97 @@
-'use client';
+#!/usr/bin/env node
+// 1. Reface etichetele combinate: "1 (Gazde)" / "2 (Oaspeti)" in loc de doar 1/2
+// 2. Imbunatateste pagina de bilete: interval de zile (nu doar una),
+//    filtru de probabilitate minima, cota reala per selectie, buton
+//    de copiere rapida a biletului
+
+const fs = require('fs');
+const path = require('path');
+
+function writeFile(relativePath, content) {
+  const fullPath = path.join(__dirname, relativePath);
+  fs.mkdirSync(path.dirname(fullPath), { recursive: true });
+  fs.writeFileSync(fullPath, content, { encoding: 'utf8' });
+  console.log('Actualizat: ' + relativePath);
+}
+
+function replaceInFile(relativePath, oldStr, newStr) {
+  const fullPath = path.join(__dirname, relativePath);
+  let content = fs.readFileSync(fullPath, 'utf8');
+  if (!content.includes(oldStr)) {
+    console.log('EROARE: nu am gasit textul de inlocuit in ' + relativePath);
+    process.exit(1);
+  }
+  content = content.split(oldStr).join(newStr);
+  fs.writeFileSync(fullPath, content, { encoding: 'utf8' });
+  console.log('Actualizat: ' + relativePath);
+}
+
+replaceInFile(
+  'lib/poisson.ts',
+  `    { market: '1X2', selection: '1', label: '1 (victorie gazde)', probability: pHomeWin, fairOdds: 1 / pHomeWin },
+    { market: '1X2', selection: 'X', label: 'X (egal)', probability: pDraw, fairOdds: 1 / pDraw },
+    { market: '1X2', selection: '2', label: '2 (victorie oaspeti)', probability: pAwayWin, fairOdds: 1 / pAwayWin },`,
+  `    { market: '1X2', selection: '1', label: '1 (Gazde) castiga', probability: pHomeWin, fairOdds: 1 / pHomeWin },
+    { market: '1X2', selection: 'X', label: 'X - Egal', probability: pDraw, fairOdds: 1 / pDraw },
+    { market: '1X2', selection: '2', label: '2 (Oaspeti) castiga', probability: pAwayWin, fairOdds: 1 / pAwayWin },`
+);
+
+replaceInFile(
+  'lib/poisson.ts',
+  `function calculateTeamOverUnderMarkets(
+  avg: number | null,
+  thresholds: number[],
+  marketName: string,
+  unitLabel: string,
+  teamNumber: '1' | '2'
+): MarketProbability[] {
+  if (avg === null) return [];
+
+  const markets: MarketProbability[] = [];
+  for (const threshold of thresholds) {
+    const kMax = Math.floor(threshold);
+    let pUnder = 0;
+    for (let k = 0; k <= kMax; k++) {
+      pUnder += poissonProbability(avg, k);
+    }
+    pUnder = clampProb(pUnder);
+    const pOver = 1 - pUnder;
+
+    markets.push({ market: marketName, selection: teamNumber + '_OVER_' + threshold, label: teamNumber + ' peste ' + threshold + ' ' + unitLabel, probability: pOver, fairOdds: 1 / pOver });
+    markets.push({ market: marketName, selection: teamNumber + '_UNDER_' + threshold, label: teamNumber + ' sub ' + threshold + ' ' + unitLabel, probability: pUnder, fairOdds: 1 / pUnder });
+  }
+  return markets;
+}`,
+  `function calculateTeamOverUnderMarkets(
+  avg: number | null,
+  thresholds: number[],
+  marketName: string,
+  unitLabel: string,
+  teamNumber: '1' | '2'
+): MarketProbability[] {
+  if (avg === null) return [];
+
+  const teamText = teamNumber === '1' ? '1 (Gazde)' : '2 (Oaspeti)';
+  const markets: MarketProbability[] = [];
+  for (const threshold of thresholds) {
+    const kMax = Math.floor(threshold);
+    let pUnder = 0;
+    for (let k = 0; k <= kMax; k++) {
+      pUnder += poissonProbability(avg, k);
+    }
+    pUnder = clampProb(pUnder);
+    const pOver = 1 - pUnder;
+
+    markets.push({ market: marketName, selection: teamNumber + '_OVER_' + threshold, label: teamText + ' peste ' + threshold + ' ' + unitLabel, probability: pOver, fairOdds: 1 / pOver });
+    markets.push({ market: marketName, selection: teamNumber + '_UNDER_' + threshold, label: teamText + ' sub ' + threshold + ' ' + unitLabel, probability: pUnder, fairOdds: 1 / pUnder });
+  }
+  return markets;
+}`
+);
+
+console.log('lib/poisson.ts actualizat. Continui cu pagina de bilete...');
+
+writeFile('app/tickets/page.tsx', `'use client';
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -42,7 +135,7 @@ function ticketToText(ticket: Ticket): string {
   const lines = ticket.selections.map((s) => s.homeTeam + ' - ' + s.awayTeam + ' | ' + s.label + ' (' + Math.round(s.probability * 100) + '%, cota ' + s.fairOdds.toFixed(2) + ')');
   lines.push('');
   lines.push('Sansa combinata: ' + Math.round(ticket.combinedProb * 100) + '% | Cota combinata: ' + ticket.combinedOdds.toFixed(2));
-  return lines.join('\n');
+  return lines.join('\\n');
 }
 
 function todayStr(): string {
@@ -256,3 +349,9 @@ export default function TicketsPage() {
     </main>
   );
 }
+`);
+
+console.log('\nGata! Acum ruleaza:');
+console.log('  git add .');
+console.log('  git commit -m "Reface etichete 1/Gazde+2/Oaspeti, imbunatateste pagina de bilete"');
+console.log('  git push');

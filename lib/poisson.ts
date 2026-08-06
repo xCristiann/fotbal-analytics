@@ -143,9 +143,9 @@ export function calculateAllMarkets(
   // Nota: am scos Dubla sansa 1X si X2 (cote mereu foarte mici, fara
   // valoare) - ramane doar 12 (fara egal), plus piata principala 1X2.
   const markets: MarketProbability[] = [
-    { market: '1X2', selection: '1', label: '1 (victorie gazde)', probability: pHomeWin, fairOdds: 1 / pHomeWin },
-    { market: '1X2', selection: 'X', label: 'X (egal)', probability: pDraw, fairOdds: 1 / pDraw },
-    { market: '1X2', selection: '2', label: '2 (victorie oaspeti)', probability: pAwayWin, fairOdds: 1 / pAwayWin },
+    { market: '1X2', selection: '1', label: '1 (Gazde) castiga', probability: pHomeWin, fairOdds: 1 / pHomeWin },
+    { market: '1X2', selection: 'X', label: 'X - Egal', probability: pDraw, fairOdds: 1 / pDraw },
+    { market: '1X2', selection: '2', label: '2 (Oaspeti) castiga', probability: pAwayWin, fairOdds: 1 / pAwayWin },
     { market: 'BTTS', selection: 'YES', label: 'Ambele echipe marcheaza', probability: pBttsYes, fairOdds: 1 / pBttsYes },
     { market: 'BTTS', selection: 'NO', label: 'Nu marcheaza ambele echipe', probability: pBttsNo, fairOdds: 1 / pBttsNo },
     { market: 'OU25', selection: 'OVER', label: 'Peste 2.5 goluri', probability: pOver25, fairOdds: 1 / pOver25 },
@@ -199,6 +199,7 @@ function calculateTeamOverUnderMarkets(
 ): MarketProbability[] {
   if (avg === null) return [];
 
+  const teamText = teamNumber === '1' ? '1 (Gazde)' : '2 (Oaspeti)';
   const markets: MarketProbability[] = [];
   for (const threshold of thresholds) {
     const kMax = Math.floor(threshold);
@@ -209,8 +210,8 @@ function calculateTeamOverUnderMarkets(
     pUnder = clampProb(pUnder);
     const pOver = 1 - pUnder;
 
-    markets.push({ market: marketName, selection: teamNumber + '_OVER_' + threshold, label: teamNumber + ' peste ' + threshold + ' ' + unitLabel, probability: pOver, fairOdds: 1 / pOver });
-    markets.push({ market: marketName, selection: teamNumber + '_UNDER_' + threshold, label: teamNumber + ' sub ' + threshold + ' ' + unitLabel, probability: pUnder, fairOdds: 1 / pUnder });
+    markets.push({ market: marketName, selection: teamNumber + '_OVER_' + threshold, label: teamText + ' peste ' + threshold + ' ' + unitLabel, probability: pOver, fairOdds: 1 / pOver });
+    markets.push({ market: marketName, selection: teamNumber + '_UNDER_' + threshold, label: teamText + ' sub ' + threshold + ' ' + unitLabel, probability: pUnder, fairOdds: 1 / pUnder });
   }
   return markets;
 }
