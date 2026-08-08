@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { supabaseBrowser } from '@/lib/supabase-browser';
+import { getSuperbetLink } from '@/lib/superbetLinks';
 
 interface Prediction {
   market: string;
