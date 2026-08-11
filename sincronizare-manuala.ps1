@@ -41,7 +41,7 @@ Write-Host ""
 $totalProcessed = 0
 $totalWithAnalysis = 0
 
-for ($batch = 0; $batch -le 5; $batch++) {
+for ($batch = 0; $batch -le 2; $batch++) {
 
     $url = "$BaseUrl`?batch=$batch"
     if ($Data -ne "") {
@@ -87,7 +87,7 @@ for ($batch = 0; $batch -le 5; $batch++) {
 
     Write-Host ""
 
-    if ($batch -lt 5) {
+    if ($batch -lt 2) {
         Start-Sleep -Seconds 3
     }
 }

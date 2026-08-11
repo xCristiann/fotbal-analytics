@@ -146,6 +146,8 @@ export async function GET(request: Request) {
   let matchesNeterminate = 0;
   let matchesFaraPredictii = 0;
   const apiErrors: any[] = [];
+  const sampleDetails: any[] = [];
+  const SAMPLE_SIZE = 20;
 
   for (const match of matches) {
     if (Date.now() - startTime > TIME_BUDGET_MS) {
@@ -204,6 +206,18 @@ export async function GET(request: Request) {
       if (!perMarketBuckets[p.market]) perMarketBuckets[p.market] = { total: 0, correct: 0 };
       perMarketBuckets[p.market].total++;
       if (correct) perMarketBuckets[p.market].correct++;
+
+      if (sampleDetails.length < SAMPLE_SIZE && (p.market === '1X2' || p.market === 'BTTS')) {
+        sampleDetails.push({
+          meci: match.home_team_name + ' - ' + match.away_team_name,
+          scorReal: homeGoals + '-' + awayGoals,
+          piata: p.market,
+          selectiaNoastra: p.selection,
+          etichetaNoastra: p.label,
+          probabilitateaNoastra: Math.round(p.probability * 100) + '%',
+          corect: correct,
+        });
+      }
     }
 
     matchesVerificate++;
@@ -232,6 +246,7 @@ export async function GET(request: Request) {
     matchesFaraPredictii: matchesFaraPredictii,
     acurateteReala_pePraguriDeIncredere: bucketSummary,
     acurateteReala_pePiata: marketSummary,
+    esantionDetaliat: sampleDetails,
     apiErrors: apiErrors,
   });
 }
