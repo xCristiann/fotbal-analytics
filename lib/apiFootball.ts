@@ -92,6 +92,12 @@ export async function fetchOddsByFixture(fixtureId: number) {
   return data ? data.response : undefined;
 }
 
+export async function fetchFixtureById(fixtureId: number) {
+  const url = API_BASE + '/fixtures?id=' + fixtureId;
+  const { data } = await apiCall(url);
+  return (data && data.response && data.response[0]) ? data.response[0] : null;
+}
+
 export async function fetchTeamSeasonFixtures(teamId: number, season: number): Promise<FixturesResult> {
   const url = API_BASE + '/fixtures?team=' + teamId + '&season=' + season;
   const { data, errors } = await apiCall(url);
