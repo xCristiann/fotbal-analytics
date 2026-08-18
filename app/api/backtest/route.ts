@@ -97,6 +97,23 @@ function checkPrediction(
   return null;
 }
 
+// Grupeaza predictiile complementare (DA/NU, Peste/Sub la acelasi
+// prag) sub aceeasi cheie, ca sa pastram doar recomandarea reala -
+// varianta cu probabilitatea mai mare - nu ambele parti.
+function getGroupKey(market: string, selection: string): string {
+  if (market === '1X2' || market === 'BTTS' || market === 'OU25' || market === 'COMBO') {
+    return market;
+  }
+  if (market === 'CORNERS' || market === 'CARDS' || market === 'SHOTS') {
+    if (selection.indexOf('BOTH_') === 0) {
+      return market + '_' + selection;
+    }
+    const withoutDirection = selection.replace('_OVER_', '_').replace('_UNDER_', '_');
+    return market + '_' + withoutDirection;
+  }
+  return market + '_' + selection;
+}
+
 function bucketKeyFor(probability: number): string {
   if (probability >= 0.9) return '90-100';
   if (probability >= 0.8) return '80-90';
@@ -192,7 +209,18 @@ export async function GET(request: Request) {
       awayShots = extractShots(stats, fixture.teams.away.id);
     }
 
+    // Pastram DOAR recomandarea reala (probabilitatea mai mare) per
+    // grup (piata + prag), nu toate variantele stocate.
+    const topPerGroup = new Map<string, any>();
     for (const p of predictions) {
+      const groupKey = getGroupKey(p.market, p.selection);
+      const existing = topPerGroup.get(groupKey);
+      if (!existing || p.probability > existing.probability) {
+        topPerGroup.set(groupKey, p);
+      }
+    }
+
+    for (const p of topPerGroup.values()) {
       const correct = checkPrediction(
         p.market, p.selection, homeGoals, awayGoals,
         homeCorners, awayCorners, homeCards, awayCards, homeShots, awayShots
@@ -207,7 +235,7 @@ export async function GET(request: Request) {
       perMarketBuckets[p.market].total++;
       if (correct) perMarketBuckets[p.market].correct++;
 
-      if (sampleDetails.length < SAMPLE_SIZE && (p.market === '1X2' || p.market === 'BTTS')) {
+      if (sampleDetails.length < SAMPLE_SIZE && p.market !== '1X2') {
         sampleDetails.push({
           meci: match.home_team_name + ' - ' + match.away_team_name,
           scorReal: homeGoals + '-' + awayGoals,
